@@ -4,5 +4,5 @@ from . import views
 app_name = 'notifications'
 
 urlpatterns = [
-    # URLs will be added here as we develop the features
+    path('', views.NotificationListView.as_view(), name='list'),
 ]

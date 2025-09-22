@@ -1,0 +1,147 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Network Incident Management System{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block breadcrumb %}
+<a href="{% url 'dashboard:dashboard' %}" class="text-decoration-none">Home</a>
+<span class="mx-2">/</span>
+<span class="text-muted">{{ network_type|default:"Page" }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-gear me-2"></i>{{ page_title }}
+                </h5>
+            </div>
+            <div class="card-body text-center py-5">
+                <div class="mb-4">
+                    {% if 'Transport' in network_type %}
+                        <i class="bi bi-diagram-3 display-1 text-primary"></i>
+                    {% elif 'File Access' in network_type %}
+                        <i class="bi bi-hdd-network display-1 text-info"></i>
+                    {% elif 'Radio Access' in network_type %}
+                        <i class="bi bi-broadcast display-1 text-warning"></i>
+                    {% elif 'Core' in network_type %}
+                        <i class="bi bi-cpu display-1 text-success"></i>
+                    {% elif 'Backbone' in network_type %}
+                        <i class="bi bi-globe display-1 text-danger"></i>
+                    {% elif 'Admin' in page_title %}
+                        <i class="bi bi-gear display-1 text-secondary"></i>
+                    {% else %}
+                        <i class="bi bi-tools display-1 text-muted"></i>
+                    {% endif %}
+                </div>
+                
+                <h3 class="mb-3">{{ page_title }}</h3>
+                <p class="text-muted mb-4">
+                    This page is under development and will be implemented in the next phases of the project.
+                </p>
+                
+                <!-- Show different content based on page type -->
+                {% if 'View Incidents' in page_title %}
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-info-circle me-2"></i>Coming Soon:</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li>• View all active incidents for {{ network_type }}</li>
+                            <li>• Color-coded severity levels</li>
+                            <li>• Advanced search and filtering</li>
+                            <li>• Real-time status updates</li>
+                        </ul>
+                    </div>
+                {% elif 'Add New' in page_title %}
+                    <div class="alert alert-success">
+                        <h6><i class="bi bi-plus-circle me-2"></i>Coming Soon:</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li>• Network-specific incident creation forms</li>
+                            <li>• Real-time validation</li>
+                            <li>• Automatic duration calculation</li>
+                            <li>• Email/SMS notification options</li>
+                        </ul>
+                    </div>
+                {% elif 'Historical' in page_title %}
+                    <div class="alert alert-warning">
+                        <h6><i class="bi bi-clock-history me-2"></i>Coming Soon:</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li>• Historical incident archive</li>
+                            <li>• Advanced analytics and reporting</li>
+                            <li>• Trend analysis</li>
+                            <li>• Export functionality</li>
+                        </ul>
+                    </div>
+                {% elif 'Admin Panel' in page_title %}
+                    <div class="alert alert-danger">
+                        <h6><i class="bi bi-shield-check me-2"></i>Coming Soon:</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li>• User management system</li>
+                            <li>• System configuration</li>
+                            <li>• Advanced analytics dashboard</li>
+                            <li>• Audit logs and compliance reports</li>
+                        </ul>
+                    </div>
+                {% endif %}
+                
+                <div class="mt-4">
+                    <a href="{% url 'dashboard:dashboard' %}" class="btn btn-primary">
+                        <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                    {% if user.is_admin %}
+                    <a href="#" class="btn btn-outline-secondary ms-2">
+                        <i class="bi bi-gear me-2"></i>Configure
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Development Progress Info -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-secondary">
+            <div class="card-header bg-light">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-info-circle me-2"></i>Development Status
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Current Phase: Phase 1 - Foundation</h6>
+                        <div class="progress mb-3">
+                            <div class="progress-bar bg-success" style="width: 70%">70% Complete</div>
+                        </div>
+                        <small class="text-muted">
+                            <strong>Completed:</strong> Project Setup, Authentication, Base Templates<br>
+                            <strong>Next:</strong> Core Models Definition
+                        </small>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Technical Details:</h6>
+                        <ul class="list-unstyled small text-muted">
+                            <li><i class="bi bi-check-circle text-success me-1"></i>Django 5.2.6 + MySQL 8.0.42</li>
+                            <li><i class="bi bi-check-circle text-success me-1"></i>Custom User Authentication</li>
+                            <li><i class="bi bi-check-circle text-success me-1"></i>Bootstrap 5 Responsive Design</li>
+                            <li><i class="bi bi-check-circle text-success me-1"></i>Role-based Permissions</li>
+                            <li><i class="bi bi-gear text-warning me-1"></i>Network-specific Models (In Progress)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+console.log('Placeholder page loaded: {{ page_title }}');
+console.log('User role: {{ user.get_role_display }}');
+console.log('Network type: {{ network_type|default:"N/A" }}');
+{% endblock %}

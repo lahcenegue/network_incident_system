@@ -1,116 +1,254 @@
-{% extends 'authentication/base.html' %}
+{% extends 'base/base.html' %}
+{% load static %}
 
-{% block title %}Dashboard - Network Incident Management{% endblock %}
+{% block title %}Dashboard - Network Incident Management System{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block breadcrumb %}
+<a href="{% url 'dashboard:dashboard' %}" class="text-decoration-none">Home</a>
+<span class="mx-2">/</span>
+<span class="text-muted">Dashboard</span>
+{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'css/dashboard.css' %}" rel="stylesheet">
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2><i class="bi bi-speedometer2"></i> Network Incident Dashboard</h2>
-                <div>
-                    <span class="text-muted">Welcome, <strong>{{ user.first_name|default:user.username }}</strong></span>
-                    <span class="badge bg-{% if user.is_admin %}danger{% else %}primary{% endif %} ms-2">
-                        {{ user.get_role_display }}
-                    </span>
+<!-- Statistics Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card total fade-in">
+            <div class="card-icon">
+                <i class="bi bi-clipboard-data"></i>
+            </div>
+            <h3 class="fw-bold mb-1">{{ total_incidents|default:0 }}</h3>
+            <p class="text-muted mb-0">Total Incidents</p>
+            <small class="text-muted">All time</small>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card active fade-in" style="animation-delay: 0.1s;">
+            <div class="card-icon">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <h3 class="fw-bold mb-1 active-incidents-count">{{ active_incidents|default:0 }}</h3>
+            <p class="text-muted mb-0">Active Incidents</p>
+            <small class="text-muted">Needs attention</small>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card resolved fade-in" style="animation-delay: 0.2s;">
+            <div class="card-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <h3 class="fw-bold mb-1">{{ resolved_incidents|default:0 }}</h3>
+            <p class="text-muted mb-0">Resolved Today</p>
+            <small class="text-muted">Last 24 hours</small>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card pending fade-in" style="animation-delay: 0.3s;">
+            <div class="card-icon">
+                <i class="bi bi-clock"></i>
+            </div>
+            <h3 class="fw-bold mb-1">{{ avg_resolution_time|default:"N/A" }}</h3>
+            <p class="text-muted mb-0">Avg Resolution</p>
+            <small class="text-muted">Mean time to repair</small>
+        </div>
+    </div>
+</div>
+
+<!-- Network Status Overview -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-diagram-3 me-2"></i>Network Status Overview
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <!-- Transport Networks -->
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center p-3 bg-light rounded">
+                            <div class="flex-shrink-0">
+                                <i class="bi bi-diagram-3 fs-4 text-primary"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <div class="fw-semibold">Transport Networks</div>
+                                <div class="text-muted small">
+                                    {{ transport_active|default:0 }} active incidents
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <span class="badge bg-primary">{{ transport_total|default:0 }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- File Access Networks -->
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center p-3 bg-light rounded">
+                            <div class="flex-shrink-0">
+                                <i class="bi bi-hdd-network fs-4 text-info"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <div class="fw-semibold">File Access Networks</div>
+                                <div class="text-muted small">
+                                    {{ file_access_active|default:0 }} active incidents
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <span class="badge bg-info">{{ file_access_total|default:0 }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Radio Access Networks -->
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center p-3 bg-light rounded">
+                            <div class="flex-shrink-0">
+                                <i class="bi bi-broadcast fs-4 text-warning"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <div class="fw-semibold">Radio Access Networks</div>
+                                <div class="text-muted small">
+                                    {{ radio_access_active|default:0 }} active incidents
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <span class="badge bg-warning">{{ radio_access_total|default:0 }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Core Networks -->
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center p-3 bg-light rounded">
+                            <div class="flex-shrink-0">
+                                <i class="bi bi-cpu fs-4 text-success"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <div class="fw-semibold">Core Networks</div>
+                                <div class="text-muted small">
+                                    {{ core_active|default:0 }} active incidents
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <span class="badge bg-success">{{ core_total|default:0 }}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h5 class="card-title">Total Incidents</h5>
-                            <h2 class="mb-0">{{ total_incidents }}</h2>
-                        </div>
-                        <div>
-                            <i class="bi bi-exclamation-triangle" style="font-size: 2rem;"></i>
-                        </div>
-                    </div>
-                </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-person me-2"></i>Quick Actions
+                </h5>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card bg-warning text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h5 class="card-title">Active Incidents</h5>
-                            <h2 class="mb-0">{{ active_incidents }}</h2>
-                        </div>
-                        <div>
-                            <i class="bi bi-clock" style="font-size: 2rem;"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h5 class="card-title">Resolved Incidents</h5>
-                            <h2 class="mb-0">{{ resolved_incidents }}</h2>
-                        </div>
-                        <div>
-                            <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-list-task"></i> Quick Actions</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6>Network Management</h6>
-                            <div class="list-group">
-                                <a href="#" class="list-group-item list-group-item-action">
-                                    <i class="bi bi-plus-circle"></i> Create New Incident
-                                </a>
-                                <a href="#" class="list-group-item list-group-item-action">
-                                    <i class="bi bi-search"></i> View All Incidents
-                                </a>
-                                <a href="#" class="list-group-item list-group-item-action">
-                                    <i class="bi bi-graph-up"></i> View Analytics
-                                </a>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <h6>Account Management</h6>
-                            <div class="list-group">
-                                <a href="{% url 'authentication:profile' %}" class="list-group-item list-group-item-action">
-                                    <i class="bi bi-person-circle"></i> View Profile
-                                </a>
-                                {% if user.is_admin %}
-                                <a href="#" class="list-group-item list-group-item-action">
-                                    <i class="bi bi-gear"></i> Admin Panel
-                                </a>
-                                {% endif %}
-                                <form method="post" action="{% url 'authentication:logout' %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="list-group-item list-group-item-action text-danger border-0 bg-transparent w-100 text-start">
-                                        <i class="bi bi-box-arrow-right"></i> Logout
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="#" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>Create New Incident
+                    </a>
+                    <a href="{% url 'authentication:profile' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-person me-2"></i>View Profile
+                    </a>
+                    {% if user.is_admin %}
+                    <a href="#" class="btn btn-outline-info">
+                        <i class="bi bi-gear me-2"></i>Admin Panel
+                    </a>
+                    {% endif %}
+                    <a href="#" class="btn btn-outline-success">
+                        <i class="bi bi-download me-2"></i>Export Reports
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Recent Incidents -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-clock-history me-2"></i>Recent Incidents
+                </h5>
+                <a href="#" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_incidents %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Network Type</th>
+                                <th>Location</th>
+                                <th>Created</th>
+                                <th>Status</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for incident in recent_incidents %}
+                            <tr class="incident-row">
+                                <td class="fw-monospace small">{{ incident.id|truncatechars:8 }}</td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ incident.network_type }}</span>
+                                </td>
+                                <td>{{ incident.location|default:"N/A" }}</td>
+                                <td>
+                                    <small class="text-muted" data-timestamp="{{ incident.created_at|date:'U' }}">
+                                        {{ incident.created_at|timesince }} ago
+                                    </small>
+                                </td>
+                                <td>
+                                    {% if incident.is_resolved %}
+                                    <span class="badge bg-success">Resolved</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Active</span>
+                                    {% endif %}
+                                </td>
+                                <td class="fw-monospace small">{{ incident.duration|default:"Calculating..." }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox fs-1 text-muted"></i>
+                    <h5 class="mt-3 text-muted">No recent incidents</h5>
+                    <p class="text-muted">Create your first incident to get started</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+// Dashboard-specific JavaScript
+console.log('Dashboard loaded for user: {{ user.username }}');
+
+// Update dashboard statistics every 30 seconds
+setInterval(function() {
+    // This will be implemented when we add AJAX endpoints
+    console.log('Refreshing dashboard statistics...');
+}, 30000);
 {% endblock %}
