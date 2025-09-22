@@ -4,6 +4,9 @@ from django.urls import path, include
 urlpatterns = [
     # Django admin (built-in)
     path('admin/', admin.site.urls),
+
+    # Authentication URLs
+    path('auth/', include('authentication.urls')),
     
     # Main application URLs
     path('', include('dashboard.urls')),  # Dashboard will be the home page

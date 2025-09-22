@@ -1,0 +1,116 @@
+{% extends 'authentication/base.html' %}
+
+{% block title %}Dashboard - Network Incident Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-speedometer2"></i> Network Incident Dashboard</h2>
+                <div>
+                    <span class="text-muted">Welcome, <strong>{{ user.first_name|default:user.username }}</strong></span>
+                    <span class="badge bg-{% if user.is_admin %}danger{% else %}primary{% endif %} ms-2">
+                        {{ user.get_role_display }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Total Incidents</h5>
+                            <h2 class="mb-0">{{ total_incidents }}</h2>
+                        </div>
+                        <div>
+                            <i class="bi bi-exclamation-triangle" style="font-size: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Active Incidents</h5>
+                            <h2 class="mb-0">{{ active_incidents }}</h2>
+                        </div>
+                        <div>
+                            <i class="bi bi-clock" style="font-size: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Resolved Incidents</h5>
+                            <h2 class="mb-0">{{ resolved_incidents }}</h2>
+                        </div>
+                        <div>
+                            <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-list-task"></i> Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Network Management</h6>
+                            <div class="list-group">
+                                <a href="#" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-plus-circle"></i> Create New Incident
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-search"></i> View All Incidents
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-graph-up"></i> View Analytics
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Account Management</h6>
+                            <div class="list-group">
+                                <a href="{% url 'authentication:profile' %}" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-person-circle"></i> View Profile
+                                </a>
+                                {% if user.is_admin %}
+                                <a href="#" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-gear"></i> Admin Panel
+                                </a>
+                                {% endif %}
+                                <form method="post" action="{% url 'authentication:logout' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="list-group-item list-group-item-action text-danger border-0 bg-transparent w-100 text-start">
+                                        <i class="bi bi-box-arrow-right"></i> Logout
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -40,6 +40,7 @@ INSTALLED_APPS = [
        'django.contrib.staticfiles',
        
        # Project apps
+       'authentication',
        'incidents',
        'dashboard',
        'admin_panel',
@@ -143,3 +144,40 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Crispy Forms Configuration
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
+
+# Authentication Settings
+LOGIN_URL = '/auth/login/'
+LOGIN_REDIRECT_URL = '/'  # Redirect to dashboard after login
+LOGOUT_REDIRECT_URL = '/auth/login/'
+
+# Session Configuration
+SESSION_COOKIE_AGE = 1800  # 30 minutes (1800 seconds)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True  # Refresh session on every request
+
+# Password Validation (Enhanced Security)
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        }
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
+
+# Security Settings
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+# Custom User Model
+AUTH_USER_MODEL = 'authentication.CustomUser'
