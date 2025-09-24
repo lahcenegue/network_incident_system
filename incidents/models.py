@@ -1,3 +1,4 @@
+# incidents/models.py
 import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
@@ -68,9 +69,6 @@ class BaseIncident(models.Model):
         help_text="Detailed description of impact and comments"
     )
     
-    # System Fields - Note: Each child model will need unique related_names
-    # These will be overridden in each concrete model
-    
     # Status tracking
     is_resolved = models.BooleanField(default=False)
     is_archived = models.BooleanField(default=False)
@@ -95,6 +93,16 @@ class BaseIncident(models.Model):
             models.Index(fields=['is_resolved']),
             models.Index(fields=['is_archived']),
             models.Index(fields=['created_at']),
+            
+            # NEW: Composite indexes for performance optimization
+            models.Index(fields=['is_resolved', 'date_time_incident']),  # For active/resolved filtering with date sorting
+            models.Index(fields=['date_time_incident', 'is_resolved']),  # For date range queries with status
+            models.Index(fields=['cause', 'date_time_incident']),        # For cause filtering with date sorting
+            models.Index(fields=['origin', 'date_time_incident']),       # For origin filtering with date sorting
+            models.Index(fields=['created_by', 'date_time_incident']),   # For user-specific queries
+            
+            # Index for auto-archival queries
+            models.Index(fields=['is_resolved', 'date_time_recovery', 'cause', 'origin']),
         ]
     
     def save(self, *args, **kwargs):
@@ -116,10 +124,20 @@ class BaseIncident(models.Model):
     
     def get_duration_display(self):
         """Return human-readable duration format: 'Xd Yh Zm'"""
-        if not self.duration_minutes:
-            return "Calculating..."
+        if not self.date_time_incident:
+            return "Not started"
         
-        total_minutes = self.duration_minutes
+        # Calculate current duration if not resolved
+        if not self.is_resolved:
+            current_time = timezone.now()
+            duration = current_time - self.date_time_incident
+            total_minutes = max(0, int(duration.total_seconds() / 60))
+        else:
+            total_minutes = self.duration_minutes or 0
+        
+        if total_minutes == 0:
+            return "0m"
+        
         days = total_minutes // (24 * 60)
         hours = (total_minutes % (24 * 60)) // 60
         minutes = total_minutes % 60
@@ -137,22 +155,55 @@ class BaseIncident(models.Model):
     def get_severity_class(self):
         """Return CSS class based on incident age for color coding"""
         if self.is_resolved:
-            return 'severity-green'
+            return 'incident-resolved'
         
         if not self.date_time_incident:
-            return 'severity-white'
+            return 'incident-new'
+        
+        # Calculate hours since incident started
+        age = timezone.now() - self.date_time_incident
+        hours = age.total_seconds() / 3600
+        
+        if hours < 1:
+            return 'incident-new'      # White background
+        elif hours < 2:
+            return 'incident-low'      # Yellow background
+        elif hours < 4:
+            return 'incident-medium'   # Orange background
+        else:
+            return 'incident-critical' # Red background
+    
+    def get_severity_display(self):
+        """Return human-readable severity level"""
+        if self.is_resolved:
+            return "Resolved"
+        
+        if not self.date_time_incident:
+            return "New"
         
         age = timezone.now() - self.date_time_incident
         hours = age.total_seconds() / 3600
         
         if hours < 1:
-            return 'severity-white'
+            return "New"
         elif hours < 2:
-            return 'severity-yellow'
+            return "Low Severity"
         elif hours < 4:
-            return 'severity-orange'
+            return "Medium Severity"
         else:
-            return 'severity-red'
+            return "Critical"
+    
+    def get_age_in_hours(self):
+        """Return incident age in hours as float"""
+        if not self.date_time_incident:
+            return 0
+        
+        if self.is_resolved and self.date_time_recovery:
+            age = self.date_time_recovery - self.date_time_incident
+        else:
+            age = timezone.now() - self.date_time_incident
+        
+        return max(0, age.total_seconds() / 3600)
     
     def should_auto_archive(self):
         """Check if incident should be automatically archived"""
@@ -160,7 +211,9 @@ class BaseIncident(models.Model):
             return False
         
         # Auto-archive 2 hours after resolution if cause and origin are filled
-        if self.date_time_recovery and self.cause and self.origin:
+        if (self.date_time_recovery and 
+            self.cause and self.cause.strip() and
+            self.origin and self.origin.strip()):
             archive_time = self.date_time_recovery + timedelta(hours=2)
             return timezone.now() >= archive_time
         
@@ -168,15 +221,21 @@ class BaseIncident(models.Model):
     
     def get_cause_display(self):
         """Return cause with other description if applicable"""
-        if self.cause == 'Other' and self.cause_other:
+        if not self.cause:
+            return "Not specified"
+        
+        if self.cause.lower() == 'other' and self.cause_other:
             return f"Other: {self.cause_other}"
-        return self.cause or "Not specified"
+        return self.cause
     
     def get_origin_display(self):
         """Return origin with other description if applicable"""
-        if self.origin == 'Other' and self.origin_other:
+        if not self.origin:
+            return "Not specified"
+        
+        if self.origin.lower() == 'other' and self.origin_other:
             return f"Other: {self.origin_other}"
-        return self.origin or "Not specified"
+        return self.origin
     
     def __str__(self):
         return f"Incident {str(self.id)[:8]} - {self.date_time_incident}"
@@ -237,6 +296,7 @@ class TransportNetworkIncident(BaseIncident):
     
     # Responsibility (A, B, or Both)
     RESPONSIBILITY_CHOICES = [
+        ('', '--- None ---'),
         ('A', 'A'),
         ('B', 'B'), 
         ('Both', 'Both'),
@@ -370,6 +430,7 @@ class RadioAccessNetworkIncident(BaseIncident):
         """Return formatted location for display"""
         return f"{self.do_wilaya} - {self.site}"
     
+
 class CoreNetworkIncident(BaseIncident):
     """
     Core Networks specific incident model
@@ -634,77 +695,3 @@ class SystemConfiguration(models.Model):
     
     def __str__(self):
         return f"{self.key}: {self.description}"
-
-
-# Utility function for model managers
-class ActiveIncidentManager(models.Manager):
-    """Manager for active (non-resolved) incidents"""
-    def get_queryset(self):
-        return super().get_queryset().filter(is_resolved=False, is_archived=False)
-
-
-class ArchivedIncidentManager(models.Manager):
-    """Manager for archived incidents"""
-    def get_queryset(self):
-        return super().get_queryset().filter(is_archived=True)
-
-
-class ResolvedIncidentManager(models.Manager):
-    """Manager for resolved incidents"""
-    def get_queryset(self):
-        return super().get_queryset().filter(is_resolved=True)
-
-
-# Add custom managers to incident models
-def add_custom_managers():
-    """Function to add custom managers to all incident models"""
-    incident_models = [
-        TransportNetworkIncident,
-        FileAccessNetworkIncident,
-        RadioAccessNetworkIncident,
-        CoreNetworkIncident,
-        BackboneInternetNetworkIncident,
-    ]
-    
-    for model in incident_models:
-        model.add_to_class('objects', models.Manager())  # Default manager
-        model.add_to_class('active', ActiveIncidentManager())  # Active incidents
-        model.add_to_class('archived', ArchivedIncidentManager())  # Archived incidents
-        model.add_to_class('resolved', ResolvedIncidentManager())  # Resolved incidents
-
-
-# Call the function to add managers
-add_custom_managers()
-
-
-# Signal handlers for automatic archival and audit logging
-from django.db.models.signals import post_save, pre_delete
-from django.dispatch import receiver
-
-
-@receiver(post_save, sender=TransportNetworkIncident)
-@receiver(post_save, sender=FileAccessNetworkIncident)
-@receiver(post_save, sender=RadioAccessNetworkIncident)
-@receiver(post_save, sender=CoreNetworkIncident)
-@receiver(post_save, sender=BackboneInternetNetworkIncident)
-def incident_post_save_handler(sender, instance, created, **kwargs):
-    """
-    Handle post-save operations for incidents
-    - Create audit log entry
-    - Check for automatic archival
-    """
-    # Create audit log entry
-    action = 'CREATE' if created else 'UPDATE'
-    AuditLog.objects.create(
-        user=getattr(instance, 'updated_by', None) or getattr(instance, 'created_by', None),
-        action=action,
-        model_name=sender.__name__,
-        object_id=str(instance.id),
-        # We'll add change tracking in a future enhancement
-    )
-    
-    # Check for automatic archival
-    if instance.should_auto_archive():
-        instance.is_archived = True
-        instance.archived_at = timezone.now()
-        instance.save(update_fields=['is_archived', 'archived_at'])

@@ -1,0 +1,35 @@
+{% load incident_filters %}
+
+<!-- Display validation errors in a user-friendly way -->
+{% if form.errors %}
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <strong><i class="fas fa-exclamation-triangle"></i> Please correct the following errors:</strong>
+    <ul class="mb-0 mt-2">
+        {% for field, errors in form.errors.items %}
+            {% for error in errors %}
+                <li>
+                    {% if field == '__all__' %}
+                        {{ error }}
+                    {% else %}
+                        <strong>{{ form|get_field_label:field }}:</strong> {{ error }}
+                    {% endif %}
+                </li>
+            {% endfor %}
+        {% endfor %}
+    </ul>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+<!-- Display non-field errors separately -->
+{% if form.non_field_errors %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <strong><i class="fas fa-info-circle"></i> Additional Information:</strong>
+    <ul class="mb-0 mt-2">
+        {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}

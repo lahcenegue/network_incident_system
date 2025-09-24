@@ -1,9 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <link rel="stylesheet" href="{% static 'css/incident-severity.css' %}">
     
     <!-- CSRF Token for AJAX requests -->
     <meta name="csrf-token" content="{{ csrf_token }}">
@@ -56,8 +59,8 @@
                         <i class="bi bi-chevron-down ms-auto"></i>
                     </a>
                     <ul class="submenu">
-                        <li><a href="{% url 'incidents:transport_list' %}">View Incidents</a></li>
-                        <li><a href="{% url 'incidents:transport_create' %}">Add New Incident</a></li>
+                        <li><a href="{% url 'incidents:transport_incidents' %}">View Incidents</a></li>
+                        <li><a href="{% url 'incidents:add_transport_incident' %}">Add New Incident</a></li>
                         <li><a href="{% url 'incidents:transport_historical' %}">View Historical</a></li>
                     </ul>
                 </li>
@@ -70,8 +73,8 @@
                         <i class="bi bi-chevron-down ms-auto"></i>
                     </a>
                     <ul class="submenu">
-                        <li><a href="{% url 'incidents:file_access_list' %}">View Incidents</a></li>
-                        <li><a href="{% url 'incidents:file_access_create' %}">Add New Incident</a></li>
+                        <li><a href="{% url 'incidents:file_access_incidents' %}">View Incidents</a></li>
+                        <li><a href="{% url 'incidents:add_file_access_incident' %}">Add New Incident</a></li>
                         <li><a href="{% url 'incidents:file_access_historical' %}">View Historical</a></li>
                     </ul>
                 </li>
@@ -84,8 +87,8 @@
                         <i class="bi bi-chevron-down ms-auto"></i>
                     </a>
                     <ul class="submenu">
-                        <li><a href="{% url 'incidents:radio_access_list' %}">View Incidents</a></li>
-                        <li><a href="{% url 'incidents:radio_access_create' %}">Add New Incident</a></li>
+                        <li><a href="{% url 'incidents:radio_access_incidents' %}">View Incidents</a></li>
+                        <li><a href="{% url 'incidents:add_radio_access_incident' %}">Add New Incident</a></li>
                         <li><a href="{% url 'incidents:radio_access_historical' %}">View Historical</a></li>
                     </ul>
                 </li>
@@ -98,8 +101,8 @@
                         <i class="bi bi-chevron-down ms-auto"></i>
                     </a>
                     <ul class="submenu">
-                        <li><a href="{% url 'incidents:core_list' %}">View Incidents</a></li>
-                        <li><a href="{% url 'incidents:core_create' %}">Add New Incident</a></li>
+                        <li><a href="{% url 'incidents:core_incidents' %}">View Incidents</a></li>
+                        <li><a href="{% url 'incidents:add_core_incident' %}">Add New Incident</a></li>
                         <li><a href="{% url 'incidents:core_historical' %}">View Historical</a></li>
                     </ul>
                 </li>
@@ -112,9 +115,9 @@
                         <i class="bi bi-chevron-down ms-auto"></i>
                     </a>
                     <ul class="submenu">
-                        <li><a href="{% url 'incidents:backbone_list' %}">View Incidents</a></li>
-                        <li><a href="{% url 'incidents:backbone_create' %}">Add New Incident</a></li>
-                        <li><a href="{% url 'incidents:backbone_historical' %}">View Historical</a></li>
+                        <li><a href="{% url 'incidents:backbone_internet_incidents' %}">View Incidents</a></li>
+                        <li><a href="{% url 'incidents:add_backbone_internet_incident' %}">Add New Incident</a></li>
+                        <li><a href="{% url 'incidents:backbone_internet_historical' %}">View Historical</a></li>
                     </ul>
                 </li>
                 

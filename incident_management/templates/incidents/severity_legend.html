@@ -1,0 +1,10 @@
+<!-- incidents/templates/incidents/severity_legend.html -->
+<div class="severity-legend">
+    <h6 class="me-3 mb-0">Incident Severity:</h6>
+    {% for item in legend_items %}
+    <div class="severity-legend-item">
+        <div class="severity-legend-color {{ item.class }}"></div>
+        <span><strong>{{ item.label }}</strong> - {{ item.description }}</span>
+    </div>
+    {% endfor %}
+</div>

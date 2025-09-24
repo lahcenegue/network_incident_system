@@ -1,0 +1,1243 @@
+{% extends 'base/base.html' %}
+{% load incident_tags %}
+
+{% block title %}Radio Access Networks{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Modern Dashboard Design */
+:root {
+  --surface-primary: #ffffff;
+  --surface-secondary: #f8fafc;
+  --surface-tertiary: #f1f5f9;
+  --border-light: #e2e8f0;
+  --border-medium: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+/* Compact Severity Legend */
+.severity-legend {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.severity-legend-content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.severity-legend-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.severity-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.severity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.severity-dot.new { background: #64748b; }
+.severity-dot.low { background: #f59e0b; }
+.severity-dot.medium { background: #ea580c; }
+.severity-dot.critical { background: #dc2626; }
+.severity-dot.resolved { background: #16a34a; }
+
+/* Header Section */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  gap: 24px;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 2px 0 0 0;
+}
+
+/* Modern Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-medium);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--accent-color, #64748b);
+}
+
+.stat-card.danger::before { background: #dc2626; }
+.stat-card.success::before { background: #16a34a; }
+.stat-card.warning::before { background: #ea580c; }
+.stat-card.info::before { background: #f59e0b; }
+
+.stat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.stat-number {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.stat-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.6;
+}
+
+/* Modern Table */
+.incidents-container {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.table-header {
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-light);
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.table-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.table-count {
+  background: #3b82f6;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* Table Styling */
+.modern-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.modern-table thead th {
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-light);
+  padding: 16px 20px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
+}
+
+.modern-table tbody td {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+  font-size: 14px;
+  background: var(--surface-primary);
+}
+
+.modern-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.modern-table tbody tr:hover td {
+  background: var(--surface-secondary);
+}
+
+/* Clean Row Styling - No Background Colors */
+.modern-table tbody tr td:first-child {
+  border-left: 4px solid #e2e8f0;
+}
+
+.incident-new td:first-child {
+  border-left-color: #64748b;
+}
+
+.incident-low td:first-child {
+  border-left-color: #f59e0b;
+}
+
+.incident-medium td:first-child {
+  border-left-color: #ea580c;
+}
+
+.incident-critical td:first-child {
+  border-left-color: #dc2626;
+}
+
+.incident-resolved td:first-child {
+  border-left-color: #16a34a;
+}
+
+/* Severity Row Styling - Border Accent Only */
+.incident-new,
+.incident-low,
+.incident-medium,
+.incident-critical,
+.incident-resolved {
+  /* Color indication handled by first-child border only */
+}
+
+/* Status Column */
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 90px;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-icon {
+  font-size: 16px;
+  opacity: 0.8;
+}
+
+.status-icon.critical { color: #dc2626; }
+.status-icon.medium { color: #ea580c; }
+.status-icon.low { color: #f59e0b; }
+.status-icon.new { color: #64748b; }
+.status-icon.resolved { color: #16a34a; }
+
+/* Incident ID */
+.incident-id {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--surface-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Severity Badge */
+.severity-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.severity-badge.new {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.severity-badge.low {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.severity-badge.medium {
+  background: #fed7aa;
+  color: #c2410c;
+}
+
+.severity-badge.critical {
+  background: #fecaca;
+  color: #b91c1c;
+}
+
+.severity-badge.resolved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* Duration Display */
+.duration-display {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--surface-tertiary);
+  color: var(--text-primary);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* IP Address Display */
+.ip-address {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 13px;
+  background: var(--surface-tertiary);
+  color: #059669;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #a7f3d0;
+}
+
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.action-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.action-btn:hover {
+  background: var(--surface-secondary);
+  border-color: var(--border-medium);
+  transform: translateY(-1px);
+}
+
+.action-btn.primary {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.action-btn.primary:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.empty-icon {
+  font-size: 48px;
+  color: #16a34a;
+  margin-bottom: 16px;
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.empty-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+/* Primary Button */
+.btn-primary-modern {
+  background: #3b82f6;
+  border: 1px solid #3b82f6;
+  color: white;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.btn-primary-modern:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .stat-card {
+    padding: 16px;
+  }
+  
+  .stat-number {
+    font-size: 24px;
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .severity-legend-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .modern-table {
+    font-size: 12px;
+  }
+  
+  .modern-table tbody td {
+    padding: 12px 8px;
+  }
+}
+
+/* Search Interface Styles */
+.search-filter-container {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.search-header {
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-light);
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.search-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-results-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.results-badge {
+  background: #10b981;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.search-form {
+  padding: 24px;
+}
+
+.search-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.date-range-field {
+  grid-column: span 2;
+}
+
+.search-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.search-field input,
+.search-field select {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-field input:focus,
+.search-field select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  outline: none;
+}
+
+.search-help {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.date-range-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.date-input-group small {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.advanced-filters {
+  border-top: 1px solid var(--border-light);
+  padding-top: 16px;
+  margin-top: 20px;
+}
+
+.advanced-toggle {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.advanced-toggle:hover {
+  color: var(--text-primary);
+}
+
+.advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.search-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-light);
+}
+
+.search-help-panel {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--surface-tertiary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+}
+
+.search-help-content h6 {
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.search-help-content ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.search-help-content li {
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .search-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .date-range-field {
+    grid-column: span 1;
+  }
+  
+  .date-range-inputs {
+    grid-template-columns: 1fr;
+  }
+  
+  .advanced-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .search-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .search-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+
+.search-header.clickable {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.search-header.clickable:hover {
+  background: #f1f5f9;
+}
+
+.search-toggle-icon {
+  transition: transform 0.3s ease;
+  margin-right: 8px;
+  font-size: 14px;
+}
+
+/* Rotate arrow when expanded */
+.search-header[aria-expanded="true"] .search-toggle-icon {
+  transform: rotate(90deg);
+}
+
+/* Auto-expand if search is active */
+{% if search_active %}
+#searchContainer {
+  display: block !important;
+}
+{% endif %}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <!-- Compact Severity Legend -->
+  <div class="severity-legend">
+    <div class="severity-legend-content">
+      <span class="severity-legend-title">Status:</span>
+      <div class="severity-item">
+        <div class="severity-dot new"></div>
+        <span>New (&lt;1h)</span>
+      </div>
+      <div class="severity-item">
+        <div class="severity-dot low"></div>
+        <span>Low (1-2h)</span>
+      </div>
+      <div class="severity-item">
+        <div class="severity-dot medium"></div>
+        <span>Medium (2-4h)</span>
+      </div>
+      <div class="severity-item">
+        <div class="severity-dot critical"></div>
+        <span>Critical (>4h)</span>
+      </div>
+      <div class="severity-item">
+        <div class="severity-dot resolved"></div>
+        <span>Resolved</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div style="flex-grow: 1;">
+      <h1 class="page-title">
+        <i class="bi bi-broadcast-pin" style="color: #3b82f6;"></i>
+        Radio Access Networks
+      </h1>
+      <p class="page-subtitle">Monitor and manage radio access network incidents</p>
+    </div>
+    <div style="margin-left: auto;">
+      <a href="{% url 'incidents:add_radio_access_incident' %}" class="btn-primary-modern">
+        <i class="bi bi-plus-circle"></i>
+        Add New Incident
+      </a>
+    </div>
+  </div>
+
+<!-- Collapsible Search and Filter Interface -->
+  {% if search_form %}
+  <div class="search-filter-container">
+    <div class="search-header clickable" data-bs-toggle="collapse" data-bs-target="#searchContainer" aria-expanded="false">
+      <h3 class="search-title">
+        <i class="bi bi-chevron-right search-toggle-icon"></i>
+        <i class="bi bi-funnel"></i>
+        Search & Filter
+      </h3>
+      {% if search_active %}
+      <div class="search-results-info">
+        <span class="results-badge">{{ search_stats.filtered_incidents }}</span> 
+        of {{ search_stats.total_incidents }} incidents
+        <a href="?" class="btn btn-outline-secondary btn-sm ms-2">
+          <i class="bi bi-x-circle"></i> Clear Filters
+        </a>
+      </div>
+      {% endif %}
+    </div>
+    
+    <div class="collapse" id="searchContainer">
+      <form method="get" class="search-form" id="searchForm">
+        <div class="search-grid">
+          <!-- Text Search -->
+          <div class="search-field">
+            <label class="search-label">
+              <i class="bi bi-search"></i> Search Text
+            </label>
+            {{ search_form.search_query }}
+            <small class="search-help">Search by ID, location, comments, cause, or origin</small>
+          </div>
+          
+          <!-- Status Filter -->
+          <div class="search-field">
+            <label class="search-label">
+              <i class="bi bi-funnel"></i> Status
+            </label>
+            {{ search_form.status }}
+          </div>
+          
+          <!-- NETWORK-SPECIFIC SECTION - Change this part for each network -->
+          <!-- FOR RADIO ACCESS NETWORKS: -->
+          <div class="search-field">
+            <label class="search-label">
+              <i class="bi bi-geo-alt-fill"></i> Wilaya
+            </label>
+            {{ search_form.do_wilaya }}
+          </div>
+          
+          <div class="search-field">
+            <label class="search-label">
+              <i class="bi bi-broadcast-pin"></i> Site
+            </label>
+            {{ search_form.site }}
+          </div>
+          
+          <div class="search-field">
+            <label class="search-label">
+              <i class="bi bi-router"></i> IP Address
+            </label>
+            {{ search_form.ip_address }}
+          </div>
+          <!-- END FILE ACCESS SPECIFIC FIELDS -->
+          
+          <!-- Date Range -->
+          <div class="search-field date-range-field">
+            <label class="search-label">
+              <i class="bi bi-calendar-range"></i> Date Range
+            </label>
+            <div class="date-range-inputs">
+              <div class="date-input-group">
+                <small>From:</small>
+                {{ search_form.date_from }}
+              </div>
+              <div class="date-input-group">
+                <small>To:</small>
+                {{ search_form.date_to }}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Advanced Filters (Collapsible) -->
+        <div class="advanced-filters">
+          <button type="button" class="btn btn-link advanced-toggle" data-bs-toggle="collapse" data-bs-target="#advancedFilters">
+            <i class="bi bi-chevron-down"></i> Advanced Filters
+          </button>
+          
+          <div class="collapse" id="advancedFilters">
+            <div class="advanced-grid">
+              <div class="search-field">
+                <label class="search-label">Cause</label>
+                {{ search_form.cause }}
+              </div>
+              
+              <div class="search-field">
+                <label class="search-label">Origin</label>
+                {{ search_form.origin }}
+              </div>
+              
+              <div class="search-field">
+                <label class="search-label">Sort By</label>
+                {{ search_form.sort_by }}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Search Actions -->
+        <div class="search-actions">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-search"></i> Apply Filters
+          </button>
+          <a href="?" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-clockwise"></i> Reset
+          </a>
+          <button type="button" class="btn btn-outline-info" onclick="toggleSearchHelp()">
+            <i class="bi bi-question-circle"></i> Help
+          </button>
+        </div>
+        
+        <!-- Search Help (Hidden by default) -->
+        <div class="search-help-panel" id="searchHelp" style="display: none;">
+          <div class="search-help-content">
+            <h6><i class="bi bi-lightbulb"></i> Search Tips</h6>
+            <ul>
+              <li><strong>Text Search:</strong> Search incident IDs, locations, comments, causes, or origins</li>
+              <li><strong>Status Filter:</strong> Filter by incident severity (New, Low, Medium, Critical, Resolved)</li>
+              <li><strong>Date Range:</strong> Filter incidents within specific time periods</li>
+              <li><strong>Network Fields:</strong> Filter by specific network equipment or locations</li>
+              <li><strong>Combine Filters:</strong> Use multiple filters together for precise results</li>
+            </ul>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Modern Stats Grid -->
+  <div class="stats-grid">
+    <div class="stat-card danger">
+      <div class="stat-header">
+        <div>
+          <div class="stat-number">{{ active_incidents|length }}</div>
+          <div class="stat-label">Active</div>
+        </div>
+        <i class="bi bi-exclamation-triangle stat-icon" style="color: #dc2626;"></i>
+      </div>
+    </div>
+    
+    <div class="stat-card success">
+      <div class="stat-header">
+        <div>
+          <div class="stat-number">{{ resolved_recent|length }}</div>
+          <div class="stat-label">Resolved 24h</div>
+        </div>
+        <i class="bi bi-check-circle stat-icon" style="color: #16a34a;"></i>
+      </div>
+    </div>
+
+    {% if active_incidents %}
+      <div class="stat-card warning">
+        <div class="stat-header">
+          <div>
+            <div class="stat-number">
+              {% for incident in active_incidents %}
+                {% if incident|severity_class == 'incident-medium' %}1{% endif %}
+              {% empty %}0{% endfor %}
+            </div>
+            <div class="stat-label">Medium</div>
+          </div>
+          <i class="bi bi-exclamation-triangle-fill stat-icon" style="color: #ea580c;"></i>
+        </div>
+      </div>
+      
+      <div class="stat-card info">
+        <div class="stat-header">
+          <div>
+            <div class="stat-number">
+              {% for incident in active_incidents %}
+                {% if incident|severity_class == 'incident-critical' %}1{% endif %}
+              {% empty %}0{% endfor %}
+            </div>
+            <div class="stat-label">Critical</div>
+          </div>
+          <i class="bi bi-exclamation-octagon stat-icon" style="color: #dc2626;"></i>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Active Incidents Table -->
+  {% if active_incidents %}
+  <div class="incidents-container mb-4">
+    <div class="table-header">
+      <h2 class="table-title">
+        <i class="bi bi-list-ul"></i>
+        Active Incidents
+      </h2>
+      <span class="table-count">{{ active_incidents|length }}</span>
+    </div>
+    
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>ID</th>
+          <th>Wilaya</th>
+          <th>Site</th>
+          <th>IP Address</th>
+          <th>Started</th>
+          <th>Duration</th>
+          <th>Severity</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for incident in active_incidents %}
+        <tr class="{{ incident|severity_class }}">
+          <td>
+            <div class="status-cell">
+              <div class="status-indicator" style="background: 
+                {% if incident|severity_class == 'incident-critical' %}#dc2626
+                {% elif incident|severity_class == 'incident-medium' %}#ea580c
+                {% elif incident|severity_class == 'incident-low' %}#f59e0b
+                {% else %}#64748b{% endif %};"></div>
+              {% if incident|severity_class == 'incident-critical' %}
+                <i class="bi bi-exclamation-octagon-fill status-icon critical"></i>
+              {% elif incident|severity_class == 'incident-medium' %}
+                <i class="bi bi-exclamation-triangle-fill status-icon medium"></i>
+              {% elif incident|severity_class == 'incident-low' %}
+                <i class="bi bi-exclamation-triangle status-icon low"></i>
+              {% else %}
+                <i class="bi bi-circle status-icon new"></i>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <span class="incident-id">{{ incident.id|truncate_id }}</span>
+          </td>
+          <td>
+            <strong>{{ incident.do_wilaya|default:"-" }}</strong>
+          </td>
+          <td>
+            <span class="radio-site">{{ incident.site|default:"-" }}</span>
+          </td>
+          <td>
+            <span class="ip-address">{{ incident.ip_address|default:"-" }}</span>
+          </td>
+          <td>
+            <div style="font-size: 13px;">
+              {{ incident.date_time_incident|date:"M d, H:i" }}
+              <br><span style="font-size: 11px; color: var(--text-muted);">{{ incident.date_time_incident|time_since }}</span>
+            </div>
+          </td>
+          <td>
+            <span class="duration-display">{{ incident|duration_display }}</span>
+          </td>
+          <td>
+            <span class="severity-badge {{ incident|severity_class|slice:9 }}">
+              {{ incident|severity_display }}
+            </span>
+          </td>
+          <td>
+            <div class="action-buttons">
+              <a href="{% url 'incidents:edit_radio_access_incident' incident.id %}"
+                 class="action-btn primary" title="Edit">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <button class="action-btn" onclick="showIncidentDetails('{{ incident.id }}')"
+                      title="View">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="bi bi-check-circle-fill empty-icon"></i>
+    <h3 class="empty-title">All Clear</h3>
+    <p class="empty-subtitle">No active radio access network incidents at this time.</p>
+    <a href="{% url 'incidents:add_radio_access_incident' %}" class="btn-primary-modern">
+      <i class="bi bi-plus-circle"></i>
+      Report New Incident
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Recent Resolved Incidents -->
+  {% if resolved_recent %}
+  <div class="incidents-container">
+    <div class="table-header">
+      <h2 class="table-title">
+        <i class="bi bi-check-circle"></i>
+        Recently Resolved
+      </h2>
+      <span class="table-count">{{ resolved_recent|length }}</span>
+    </div>
+    
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>ID</th>
+          <th>Wilaya</th>
+          <th>Site</th>
+          <th>IP Address</th>
+          <th>Started</th>
+          <th>Resolved</th>
+          <th>Duration</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for incident in resolved_recent %}
+        <tr class="incident-resolved">
+          <td>
+            <div class="status-cell">
+              <div class="status-indicator" style="background: #16a34a;"></div>
+              <i class="bi bi-check-circle-fill status-icon resolved"></i>
+            </div>
+          </td>
+          <td>
+            <span class="incident-id">{{ incident.id|truncate_id }}</span>
+          </td>
+          <td>
+            <strong>{{ incident.do_wilaya|default:"-" }}</strong>
+          </td>
+          <td>
+            <span class="radio-site">{{ incident.site|default:"-" }}</span>
+          </td>
+          <td>
+            <span class="ip-address">{{ incident.ip_address|default:"-" }}</span>
+          </td>
+          <td>{{ incident.date_time_incident|date:"M d, H:i" }}</td>
+          <td>{{ incident.date_time_recovery|date:"M d, H:i" }}</td>
+          <td>
+            <span class="duration-display">{{ incident.duration_minutes|format_duration }}</span>
+          </td>
+          <td>
+            <div class="action-buttons">
+              <button class="action-btn" onclick="showIncidentDetails('{{ incident.id }}')"
+                      title="View">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- Enhanced Pagination -->
+  {% if incidents %}
+    {% include 'base/pagination.html' with page_obj=incidents %}
+  {% endif %}
+</div>
+
+<script>
+function showIncidentDetails(incidentId) {
+  alert(`Viewing details for incident: ${incidentId}\n\nDetailed modal coming in next phase.`);
+}
+
+function toggleSearchHelp() {
+  const helpPanel = document.getElementById('searchHelp');
+  if (helpPanel.style.display === 'none') {
+    helpPanel.style.display = 'block';
+  } else {
+    helpPanel.style.display = 'none';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Handle search toggle arrow rotation
+  const searchHeader = document.querySelector('.search-header.clickable');
+  const searchContainer = document.getElementById('searchContainer');
+  
+  if (searchContainer && searchHeader) {
+    searchContainer.addEventListener('shown.bs.collapse', function() {
+      searchHeader.setAttribute('aria-expanded', 'true');
+    });
+    
+    searchContainer.addEventListener('hidden.bs.collapse', function() {
+      searchHeader.setAttribute('aria-expanded', 'false');
+    });
+    
+    // Auto-expand if there are active filters
+    {% if search_active %}
+    const collapse = new bootstrap.Collapse(searchContainer, {show: true});
+    searchHeader.setAttribute('aria-expanded', 'true');
+    {% endif %}
+  }
+  
+  // Rest of your existing JavaScript
+  const form = document.getElementById('searchForm');
+  if (!form) return;
+  
+  const selects = form.querySelectorAll('select');
+  
+  selects.forEach(select => {
+    select.addEventListener('change', function() {
+      // Optional: Auto-submit on select changes
+      // form.submit();
+    });
+  });
+  
+  const searchInput = form.querySelector('input[name="search_query"]');
+  let searchTimeout;
+  
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        // Optional: Auto-submit on text input (uncomment if desired)
+        // form.submit();
+      }, 500);
+    });
+  }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Existing code stays here...
+  
+  // NEW: Keyboard navigation for pagination
+  document.addEventListener('keydown', function(e) {
+    // Only if no form elements are focused
+    if (document.activeElement.tagName.toLowerCase() === 'input' || 
+        document.activeElement.tagName.toLowerCase() === 'select') {
+      return;
+    }
+    
+    // Left arrow or 'p' for previous page
+    if ((e.key === 'ArrowLeft' || e.key === 'p') && e.ctrlKey) {
+      const prevLink = document.querySelector('.page-item:has(.page-link[aria-label="Previous page"]) .page-link');
+      if (prevLink) {
+        e.preventDefault();
+        prevLink.click();
+      }
+    }
+    
+    // Right arrow or 'n' for next page
+    if ((e.key === 'ArrowRight' || e.key === 'n') && e.ctrlKey) {
+      const nextLink = document.querySelector('.page-item:has(.page-link[aria-label="Next page"]) .page-link');
+      if (nextLink) {
+        e.preventDefault();
+        nextLink.click();
+      }
+    }
+  });
+  
+  // Preload next page for better performance
+  const nextPageLink = document.querySelector('.page-item:has(.page-link[aria-label="Next page"]) .page-link');
+  if (nextPageLink) {
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = nextPageLink.href;
+    document.head.appendChild(link);
+  }
+});
+</script>
+{% endblock %}

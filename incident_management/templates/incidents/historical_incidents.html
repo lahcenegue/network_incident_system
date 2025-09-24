@@ -1,0 +1,204 @@
+{% extends 'base/base.html' %}
+{% load custom_filters %}
+
+{% block title %}{{ network_type }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="bi bi-clock-history text-primary me-2"></i>
+                        {{ network_type }}
+                    </h2>
+                    <p class="text-muted mb-0">View resolved incidents and historical data</p>
+                </div>
+                <div>
+                    <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-2"></i>Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">{{ incidents|length }}</h5>
+                            <p class="card-text">Total Resolved</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-check-circle fs-2"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">
+                                {% if incidents %}
+                                    {{ incidents|length|floatformat:0 }}
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </h5>
+                            <p class="card-text">Last 50 Incidents</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-list-check fs-2"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historical Incidents Table -->
+    {% if incidents %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-list-ul me-2"></i>
+                        Historical Incidents (Last 50)
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    {% if 'Transport' in network_type %}
+                                        <th>Region/Loop</th>
+                                        <th>System/Capacity</th>
+                                        <th>Extremities</th>
+                                    {% elif 'File Access' in network_type %}
+                                        <th>Wilaya</th>
+                                        <th>Zone/Metro</th>
+                                        <th>Site</th>
+                                        <th>IP Address</th>
+                                    {% elif 'Radio Access' in network_type %}
+                                        <th>Wilaya</th>
+                                        <th>Site</th>
+                                        <th>IP Address</th>
+                                    {% elif 'Core' in network_type %}
+                                        <th>Platform</th>
+                                        <th>Region/Node</th>
+                                        <th>Site</th>
+                                    {% elif 'Backbone' in network_type %}
+                                        <th>Interconnect Type</th>
+                                        <th>Platform/IGW</th>
+                                        <th>Link Label</th>
+                                    {% endif %}
+                                    <th>Started</th>
+                                    <th>Resolved</th>
+                                    <th>Total Duration</th>
+                                    <th>Cause</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for incident in incidents %}
+                                <tr class="table-success">
+                                    <td>
+                                        <strong>{{ incident.id|truncatechars:8 }}</strong>
+                                    </td>
+                                    {% if 'Transport' in network_type %}
+                                        <td>{{ incident.region_loop|default:"-" }}</td>
+                                        <td>{{ incident.system_capacity|default:"-" }}</td>
+                                        <td>
+                                            <small>
+                                                <strong>A:</strong> {{ incident.extremity_a|default:"-" }}<br>
+                                                <strong>B:</strong> {{ incident.extremity_b|default:"-" }}
+                                            </small>
+                                        </td>
+                                    {% elif 'File Access' in network_type %}
+                                        <td>{{ incident.do_wilaya|default:"-" }}</td>
+                                        <td>{{ incident.zone_metro|default:"-" }}</td>
+                                        <td>{{ incident.site|default:"-" }}</td>
+                                        <td><code>{{ incident.ip_address|default:"-" }}</code></td>
+                                    {% elif 'Radio Access' in network_type %}
+                                        <td>{{ incident.do_wilaya|default:"-" }}</td>
+                                        <td>{{ incident.site|default:"-" }}</td>
+                                        <td><code>{{ incident.ip_address|default:"-" }}</code></td>
+                                    {% elif 'Core' in network_type %}
+                                        <td>{{ incident.platform|default:"-" }}</td>
+                                        <td>{{ incident.region_node|default:"-" }}</td>
+                                        <td>{{ incident.site|default:"-" }}</td>
+                                    {% elif 'Backbone' in network_type %}
+                                        <td>{{ incident.interconnect_type|default:"-" }}</td>
+                                        <td>{{ incident.platform_igw|default:"-" }}</td>
+                                        <td>{{ incident.link_label|default:"-" }}</td>
+                                    {% endif %}
+                                    <td>{{ incident.date_time_incident|date:"M d, Y H:i" }}</td>
+                                    <td>{{ incident.date_time_recovery|date:"M d, Y H:i" }}</td>
+                                    <td>
+                                        <span class="badge bg-success">
+                                            {{ incident.duration }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if incident.cause %}
+                                            <small class="text-muted">{{ incident.cause }}</small>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-info" 
+                                                    onclick="showIncidentDetails('{{ incident.id }}')">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer text-muted">
+                    <small>
+                        <i class="bi bi-info-circle me-1"></i>
+                        Showing the most recent 50 resolved incidents. For complete historical data, contact your administrator.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-clock-history fs-1 text-muted"></i>
+                    <h4 class="mt-3">No Historical Data</h4>
+                    <p class="text-muted">No resolved incidents found for this network type.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function showIncidentDetails(incidentId) {
+    alert('Historical incident details for: ' + incidentId + '\n(Details modal will be implemented in next phase)');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,96 @@
+<!-- Radio Access Network Incident Form Section -->
+<div class="row g-3">
+    <!-- Location Information -->
+    <div class="col-12">
+        <h6 class="text-primary border-bottom pb-2 mb-3">
+            <i class="bi bi-geo-alt me-2"></i>Location Information
+        </h6>
+    </div>
+    
+    <div class="col-md-6">
+        <label for="{{ form.do_wilaya.id_for_label }}" class="form-label">{{ form.do_wilaya.label }}</label>
+        {{ form.do_wilaya }}
+        {% if form.do_wilaya.errors %}
+            <div class="invalid-feedback d-block">{{ form.do_wilaya.errors.0 }}</div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-6">
+        <label for="{{ form.site.id_for_label }}" class="form-label">{{ form.site.label }}</label>
+        {{ form.site }}
+        {% if form.site.errors %}
+            <div class="invalid-feedback d-block">{{ form.site.errors.0 }}</div>
+        {% endif %}
+    </div>
+    
+    <!-- Technical Information -->
+    <div class="col-12 mt-4">
+        <h6 class="text-primary border-bottom pb-2 mb-3">
+            <i class="bi bi-broadcast me-2"></i>Technical Information
+        </h6>
+    </div>
+    
+    <div class="col-md-6">
+        <label for="{{ form.ip_address.id_for_label }}" class="form-label">{{ form.ip_address.label }}</label>
+        {{ form.ip_address }}
+        <small class="text-muted">Example: 192.168.1.1</small>
+        {% if form.ip_address.errors %}
+            <div class="invalid-feedback d-block">{{ form.ip_address.errors.0 }}</div>
+        {% endif %}
+    </div>
+    
+    <!-- Incident Timeline -->
+    <div class="col-12 mt-4">
+        <h6 class="text-primary border-bottom pb-2 mb-3">
+            <i class="bi bi-clock me-2"></i>Incident Timeline
+        </h6>
+    </div>
+    
+    <div class="col-md-6">
+        <label for="{{ form.date_time_incident.id_for_label }}" class="form-label">{{ form.date_time_incident.label }}</label>
+        {{ form.date_time_incident }}
+        {% if form.date_time_incident.errors %}
+            <div class="invalid-feedback d-block">{{ form.date_time_incident.errors.0 }}</div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-6">
+        <label for="{{ form.date_time_recovery.id_for_label }}" class="form-label">{{ form.date_time_recovery.label }}</label>
+        {{ form.date_time_recovery }}
+        <small class="text-muted">Leave empty if incident is still active</small>
+        {% if form.date_time_recovery.errors %}
+            <div class="invalid-feedback d-block">{{ form.date_time_recovery.errors.0 }}</div>
+        {% endif %}
+    </div>
+    
+    <!-- Analysis Information -->
+    <div class="col-12 mt-4">
+        <h6 class="text-primary border-bottom pb-2 mb-3">
+            <i class="bi bi-search me-2"></i>Analysis Information
+        </h6>
+    </div>
+    
+    <div class="col-md-6">
+        <label for="{{ form.cause.id_for_label }}" class="form-label">{{ form.cause.label }}</label>
+        {{ form.cause }}
+        {% if form.cause.errors %}
+            <div class="invalid-feedback d-block">{{ form.cause.errors.0 }}</div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-6">
+        <label for="{{ form.origin.id_for_label }}" class="form-label">{{ form.origin.label }}</label>
+        {{ form.origin }}
+        {% if form.origin.errors %}
+            <div class="invalid-feedback d-block">{{ form.origin.errors.0 }}</div>
+        {% endif %}
+    </div>
+    
+    <div class="col-12">
+        <label for="{{ form.impact_comment.id_for_label }}" class="form-label">{{ form.impact_comment.label }}</label>
+        {{ form.impact_comment }}
+        {% if form.impact_comment.errors %}
+            <div class="invalid-feedback d-block">{{ form.impact_comment.errors.0 }}</div>
+        {% endif %}
+    </div>
+</div>

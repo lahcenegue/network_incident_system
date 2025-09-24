@@ -1,0 +1,89 @@
+<!-- Transport Network Form Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h6 class="border-bottom pb-2 mb-3">
+            <i class="bi bi-geo-alt me-2"></i>Location Information
+        </h6>
+    </div>
+    <div class="col-md-6">
+        <label for="{{ form.region_loop.id_for_label }}" class="form-label">
+            <strong>{{ form.region_loop.label }}</strong>
+            <span class="text-danger">*</span>
+        </label>
+        {{ form.region_loop }}
+        <div class="form-text">Select the region or loop</div>
+    </div>
+    <div class="col-md-6">
+        <label for="{{ form.system_capacity.id_for_label }}" class="form-label">
+            <strong>{{ form.system_capacity.label }}</strong>
+            <span class="text-danger">*</span>
+        </label>
+        {{ form.system_capacity }}
+        <div class="form-text">Select the system capacity</div>
+    </div>
+</div>
+
+<!-- Extremity Information -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h6 class="border-bottom pb-2 mb-3">
+            <i class="bi bi-arrows me-2"></i>Extremity Information
+        </h6>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">Extremity A</h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="{{ form.dot_extremity_a.id_for_label }}" class="form-label">
+                        DOT EXTREMITY(A)
+                    </label>
+                    {{ form.dot_extremity_a }}
+                </div>
+                <div class="mb-3">
+                    <label for="{{ form.extremity_a.id_for_label }}" class="form-label">
+                        <strong>EXTREMITY(A)</strong>
+                        <span class="text-danger">*</span>
+                    </label>
+                    {{ form.extremity_a }}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h6 class="mb-0">Extremity B</h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="{{ form.dot_extremity_b.id_for_label }}" class="form-label">
+                        <strong>DOT EXTREMITY(B)</strong>
+                        <span class="text-danger">*</span>
+                    </label>
+                    {{ form.dot_extremity_b }}
+                </div>
+                <div class="mb-3">
+                    <label for="{{ form.extremity_b.id_for_label }}" class="form-label">
+                        <strong>EXTREMITY(B)</strong>
+                        <span class="text-danger">*</span>
+                    </label>
+                    {{ form.extremity_b }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Responsibility -->
+<div class="row mb-4">
+    <div class="col-12">
+        <label class="form-label">{{ form.responsibility.label }}</label>
+        <div class="form-check-container">
+            {{ form.responsibility }}
+        </div>
+        <div class="form-text">Select responsibility assignment (optional)</div>
+    </div>
+</div>
