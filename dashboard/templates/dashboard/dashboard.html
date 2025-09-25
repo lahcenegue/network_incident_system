@@ -409,6 +409,56 @@
     </div>
 </div>
 
+<!-- Advanced Analytics Section -->
+<div class="row g-4 mb-4">
+    <!-- Hourly Distribution -->
+    <div class="col-lg-6">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-clock-history me-2 text-info"></i>Hourly Incident Distribution
+                </h5>
+                <small class="text-muted">Last 7 days - Peak: <span id="peakHourDisplay">--</span></small>
+            </div>
+            <div class="card-body">
+                <canvas id="hourlyChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Network-Specific Trends -->
+    <div class="col-lg-6">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-diagram-2 me-2 text-success"></i>Network-Specific Trends
+                </h5>
+                <small class="text-muted">7-day comparison by network type</small>
+            </div>
+            <div class="card-body">
+                <canvas id="networkTrendsChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resolution Time Analysis -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-hourglass-split me-2 text-warning"></i>Average Resolution Time Trends
+                </h5>
+                <small class="text-muted">30-day weekly average (hours)</small>
+            </div>
+            <div class="card-body">
+                <canvas id="resolutionChart" height="350"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Recent Incidents -->
 <div class="row">
     <div class="col-12">
@@ -578,14 +628,15 @@ function initializeCharts() {
         
         console.log('Starting chart initialization...');
         
-        // 1. Trend Line Chart
+        // Section A Charts
         initTrendChart();
-        
-        // 2. Severity Pie Chart  
         initSeverityChart();
-        
-        // 3. Network Comparison Bar Chart
         initNetworkChart();
+
+        // Section B Charts
+        initHourlyChart();
+        initNetworkTrendsChart();
+        initResolutionChart();
         
         console.log('All charts initialized successfully');
     } catch (error) {
@@ -804,6 +855,192 @@ function updateTrendChart(period) {
     trendChart.update('active');
     
     console.log(`Trend chart updated to ${period} days`);
+}
+
+// SECTION B: Advanced Chart Initializations
+
+function initHourlyChart() {
+    console.log('Initializing hourly distribution chart...');
+    const ctx = document.getElementById('hourlyChart');
+    if (!ctx || !chartData.hourly_distribution) {
+        console.error('Hourly chart: Missing canvas or data');
+        return;
+    }
+    
+    const hourlyData = chartData.hourly_distribution;
+    console.log('Hourly chart data:', hourlyData);
+    
+    // Update peak hour display
+    if (chartData.peak_analysis) {
+        document.getElementById('peakHourDisplay').textContent = 
+            `${chartData.peak_analysis.peak_hour} (${chartData.peak_analysis.peak_hour_count} incidents)`;
+    }
+    
+    try {
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: hourlyData.map(d => d.hour),
+                datasets: [{
+                    label: 'Incidents by Hour',
+                    data: hourlyData.map(d => d.count),
+                    backgroundColor: 'rgba(13, 202, 240, 0.6)',
+                    borderColor: '#0dcaf0',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.parsed.y} incident(s)`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+        console.log('Hourly chart created successfully');
+    } catch (error) {
+        console.error('Error creating hourly chart:', error);
+    }
+}
+
+function initNetworkTrendsChart() {
+    console.log('Initializing network trends chart...');
+    const ctx = document.getElementById('networkTrendsChart');
+    if (!ctx || !chartData.network_trends) {
+        console.error('Network trends chart: Missing canvas or data');
+        return;
+    }
+    
+    const trendsData = chartData.network_trends;
+    console.log('Network trends data:', trendsData);
+    
+    try {
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: trendsData.labels,
+                datasets: trendsData.datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+        console.log('Network trends chart created successfully');
+    } catch (error) {
+        console.error('Error creating network trends chart:', error);
+    }
+}
+
+function initResolutionChart() {
+    console.log('Initializing resolution time chart...');
+    const ctx = document.getElementById('resolutionChart');
+    if (!ctx || !chartData.resolution_trends) {
+        console.error('Resolution chart: Missing canvas or data');
+        return;
+    }
+    
+    const resolutionData = chartData.resolution_trends;
+    console.log('Resolution chart data:', resolutionData);
+    
+    try {
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: resolutionData.map(d => d.week),
+                datasets: [{
+                    label: 'Avg Resolution Time (hours)',
+                    data: resolutionData.map(d => d.avg_hours),
+                    borderColor: '#ffc107',
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#ffc107',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const dataPoint = resolutionData[context.dataIndex];
+                                return [
+                                    `Avg Time: ${context.parsed.y} hours`,
+                                    `Resolved: ${dataPoint.count} incidents`
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Hours'
+                        }
+                    }
+                }
+            }
+        });
+        console.log('Resolution chart created successfully');
+    } catch (error) {
+        console.error('Error creating resolution chart:', error);
+    }
 }
 
 // Initialize everything - called immediately since we're in the page_js block

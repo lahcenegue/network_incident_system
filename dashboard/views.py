@@ -91,11 +91,17 @@ def dashboard_view(request):
             'critical': sum(stats['severity_counts']['critical'] for stats in network_stats.values()),
         }
         
-        # NEW: Prepare chart data
+        # Prepare chart data
         trend_data_7d = get_chart_data_for_trends(network_models, days=7)
         trend_data_30d = get_chart_data_for_trends(network_models, days=30)
         network_comparison = get_network_comparison_data(network_stats)
-        
+
+        # Advanced analytics data
+        hourly_distribution = get_hourly_distribution_data(network_models, days=7)
+        network_trends = get_network_specific_trends(network_models, days=7)
+        resolution_trends = get_resolution_time_trends(network_models, days=30)
+        peak_analysis = get_peak_time_analysis(network_models, days=7)
+
         context = {
             'user': request.user,
             
@@ -126,14 +132,20 @@ def dashboard_view(request):
             'backbone_active': network_stats.get('backbone_internet', {}).get('active', 0),
             'backbone_total': network_stats.get('backbone_internet', {}).get('total', 0),
             
-            # NEW: Chart data (JSON-safe format for JavaScript)
+            # Section A: Chart data (JSON-safe format for JavaScript)
             'chart_data': json.dumps({
                 'trend_7d': trend_data_7d,
                 'trend_30d': trend_data_30d,
                 'network_comparison': network_comparison,
                 'severity_distribution': overall_severity,
+                # NEW: Section B advanced data
+                'hourly_distribution': hourly_distribution,
+                'network_trends': network_trends,
+                'resolution_trends': resolution_trends,
+                'peak_analysis': peak_analysis,
             }),
         }
+        
         
         return render(request, 'dashboard/dashboard.html', context)
         
@@ -310,3 +322,192 @@ def get_network_comparison_data(network_stats):
         
     except Exception as e:
         return {'labels': [], 'active_data': [], 'total_data': [], 'colors': []}
+    
+
+def get_hourly_distribution_data(network_models, days=7):
+    """Get hourly incident distribution for the last N days"""
+    try:
+        from collections import defaultdict
+        
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # Initialize 24-hour bins
+        hourly_counts = defaultdict(int)
+        
+        for model in network_models.values():
+            incidents = model.objects.filter(
+                date_time_incident__gte=start_date,
+                date_time_incident__lte=end_date
+            )
+            
+            for incident in incidents:
+                hour = incident.date_time_incident.hour
+                hourly_counts[hour] += 1
+        
+        # Format for Chart.js
+        hourly_data = []
+        for hour in range(24):
+            hourly_data.append({
+                'hour': f"{hour:02d}:00",
+                'count': hourly_counts.get(hour, 0)
+            })
+        
+        return hourly_data
+        
+    except Exception as e:
+        return [{'hour': f"{h:02d}:00", 'count': 0} for h in range(24)]
+
+
+def get_network_specific_trends(network_models, days=7):
+    """Get trend data for each network type separately"""
+    try:
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days-1)
+        
+        # Create date range
+        date_range = []
+        current_date = start_date
+        while current_date <= end_date:
+            date_range.append(current_date)
+            current_date += timedelta(days=1)
+        
+        # Network color scheme
+        color_map = {
+            'transport': '#0d6efd',
+            'file_access': '#20c997',
+            'radio_access': '#ffc107',
+            'core': '#198754',
+            'backbone_internet': '#6f42c1'
+        }
+        
+        network_trends = {
+            'labels': [date.strftime('%b %d') for date in date_range],
+            'datasets': []
+        }
+        
+        # Get data for each network
+        for network_type, model in network_models.items():
+            daily_counts = []
+            
+            for date in date_range:
+                day_start = timezone.datetime.combine(date, timezone.datetime.min.time()).replace(tzinfo=timezone.get_current_timezone())
+                day_end = day_start + timedelta(days=1)
+                
+                count = model.objects.filter(
+                    date_time_incident__gte=day_start,
+                    date_time_incident__lt=day_end
+                ).count()
+                
+                daily_counts.append(count)
+            
+            network_trends['datasets'].append({
+                'label': get_network_display_name(network_type),
+                'data': daily_counts,
+                'borderColor': color_map.get(network_type, '#6c757d'),
+                'backgroundColor': color_map.get(network_type, '#6c757d') + '20',
+                'borderWidth': 2,
+                'tension': 0.4,
+                'fill': False
+            })
+        
+        return network_trends
+        
+    except Exception as e:
+        return {'labels': [], 'datasets': []}
+
+
+def get_resolution_time_trends(network_models, days=30):
+    """Get average resolution time trends over time"""
+    try:
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days-1)
+        
+        resolution_data = []
+        
+        # Group by weeks for 30-day view
+        current_date = start_date
+        while current_date <= end_date:
+            week_end = current_date + timedelta(days=7)
+            if week_end > end_date:
+                week_end = end_date
+            
+            week_start_dt = timezone.datetime.combine(current_date, timezone.datetime.min.time()).replace(tzinfo=timezone.get_current_timezone())
+            week_end_dt = timezone.datetime.combine(week_end, timezone.datetime.max.time()).replace(tzinfo=timezone.get_current_timezone())
+            
+            total_resolution_minutes = 0
+            resolved_count = 0
+            
+            for model in network_models.values():
+                incidents = model.objects.filter(
+                    date_time_recovery__isnull=False,
+                    date_time_recovery__gte=week_start_dt,
+                    date_time_recovery__lte=week_end_dt
+                )
+                
+                for incident in incidents:
+                    if incident.duration_minutes:
+                        total_resolution_minutes += incident.duration_minutes
+                        resolved_count += 1
+            
+            avg_hours = (total_resolution_minutes / resolved_count / 60) if resolved_count > 0 else 0
+            
+            resolution_data.append({
+                'week': f"{current_date.strftime('%b %d')}-{week_end.strftime('%d')}",
+                'avg_hours': round(avg_hours, 1),
+                'count': resolved_count
+            })
+            
+            current_date = week_end + timedelta(days=1)
+        
+        return resolution_data
+        
+    except Exception as e:
+        return []
+
+
+def get_peak_time_analysis(network_models, days=7):
+    """Identify peak incident times and provide summary"""
+    try:
+        from collections import defaultdict
+        
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=days)
+        
+        hourly_counts = defaultdict(int)
+        daily_counts = defaultdict(int)
+        
+        for model in network_models.values():
+            incidents = model.objects.filter(
+                date_time_incident__gte=start_date,
+                date_time_incident__lte=end_date
+            )
+            
+            for incident in incidents:
+                hour = incident.date_time_incident.hour
+                day = incident.date_time_incident.strftime('%A')
+                hourly_counts[hour] += 1
+                daily_counts[day] += 1
+        
+        # Find peaks
+        peak_hour = max(hourly_counts.items(), key=lambda x: x[1]) if hourly_counts else (0, 0)
+        peak_day = max(daily_counts.items(), key=lambda x: x[1]) if daily_counts else ('N/A', 0)
+        
+        return {
+            'peak_hour': f"{peak_hour[0]:02d}:00",
+            'peak_hour_count': peak_hour[1],
+            'peak_day': peak_day[0],
+            'peak_day_count': peak_day[1],
+            'hourly_data': dict(hourly_counts),
+            'daily_data': dict(daily_counts)
+        }
+        
+    except Exception as e:
+        return {
+            'peak_hour': 'N/A',
+            'peak_hour_count': 0,
+            'peak_day': 'N/A',
+            'peak_day_count': 0,
+            'hourly_data': {},
+            'daily_data': {}
+        }
