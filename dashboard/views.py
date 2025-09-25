@@ -102,6 +102,13 @@ def dashboard_view(request):
         resolution_trends = get_resolution_time_trends(network_models, days=30)
         peak_analysis = get_peak_time_analysis(network_models, days=7)
 
+        # Distribution analysis
+        cause_distribution = get_cause_distribution(network_models, limit=10)
+        origin_distribution = get_origin_distribution(network_models, limit=10)
+        resolution_distribution = get_resolution_time_distribution(network_models)
+        day_distribution = get_day_of_week_distribution(network_models, days=30)
+        health_scores = get_network_health_score(network_stats)
+
         context = {
             'user': request.user,
             
@@ -138,11 +145,19 @@ def dashboard_view(request):
                 'trend_30d': trend_data_30d,
                 'network_comparison': network_comparison,
                 'severity_distribution': overall_severity,
-                # NEW: Section B advanced data
+
+                # Section B advanced data
                 'hourly_distribution': hourly_distribution,
                 'network_trends': network_trends,
                 'resolution_trends': resolution_trends,
                 'peak_analysis': peak_analysis,
+
+                # Section C distribution data
+                'cause_distribution': cause_distribution,
+                'origin_distribution': origin_distribution,
+                'resolution_distribution': resolution_distribution,
+                'day_distribution': day_distribution,
+                'health_scores': health_scores,
             }),
         }
         
@@ -511,3 +526,192 @@ def get_peak_time_analysis(network_models, days=7):
             'hourly_data': {},
             'daily_data': {}
         }
+    
+def get_cause_distribution(network_models, limit=10):
+    """Get top causes of incidents with counts"""
+    try:
+        from collections import Counter
+        
+        causes = []
+        for model in network_models.values():
+            incidents = model.objects.filter(
+                cause__isnull=False
+            ).exclude(cause='')
+            
+            for incident in incidents:
+                cause = incident.get_cause_display()
+                causes.append(cause)
+        
+        # Count occurrences
+        cause_counts = Counter(causes)
+        top_causes = cause_counts.most_common(limit)
+        
+        return {
+            'labels': [cause for cause, count in top_causes],
+            'data': [count for cause, count in top_causes],
+            'total': len(causes)
+        }
+        
+    except Exception as e:
+        return {'labels': [], 'data': [], 'total': 0}
+
+
+def get_origin_distribution(network_models, limit=10):
+    """Get top origins of incidents with counts"""
+    try:
+        from collections import Counter
+        
+        origins = []
+        for model in network_models.values():
+            incidents = model.objects.filter(
+                origin__isnull=False
+            ).exclude(origin='')
+            
+            for incident in incidents:
+                origin = incident.get_origin_display()
+                origins.append(origin)
+        
+        # Count occurrences
+        origin_counts = Counter(origins)
+        top_origins = origin_counts.most_common(limit)
+        
+        return {
+            'labels': [origin for origin, count in top_origins],
+            'data': [count for origin, count in top_origins],
+            'total': len(origins)
+        }
+        
+    except Exception as e:
+        return {'labels': [], 'data': [], 'total': 0}
+
+
+def get_resolution_time_distribution(network_models):
+    """Get distribution of resolution times in buckets"""
+    try:
+        from collections import defaultdict
+        
+        # Define time buckets (in minutes)
+        buckets = {
+            '0-30 min': (0, 30),
+            '30-60 min': (30, 60),
+            '1-2 hours': (60, 120),
+            '2-4 hours': (120, 240),
+            '4-8 hours': (240, 480),
+            '8-24 hours': (480, 1440),
+            '1-3 days': (1440, 4320),
+            '3+ days': (4320, float('inf'))
+        }
+        
+        bucket_counts = defaultdict(int)
+        
+        for model in network_models.values():
+            incidents = model.objects.filter(
+                date_time_recovery__isnull=False,
+                duration_minutes__isnull=False
+            )
+            
+            for incident in incidents:
+                duration = incident.duration_minutes
+                for bucket_name, (min_val, max_val) in buckets.items():
+                    if min_val <= duration < max_val:
+                        bucket_counts[bucket_name] += 1
+                        break
+        
+        # Prepare data in order
+        ordered_labels = [
+            '0-30 min', '30-60 min', '1-2 hours', '2-4 hours',
+            '4-8 hours', '8-24 hours', '1-3 days', '3+ days'
+        ]
+        
+        return {
+            'labels': ordered_labels,
+            'data': [bucket_counts.get(label, 0) for label in ordered_labels]
+        }
+        
+    except Exception as e:
+        return {'labels': [], 'data': []}
+
+
+def get_day_of_week_distribution(network_models, days=30):
+    """Get incident distribution by day of week"""
+    try:
+        from collections import defaultdict
+        
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=days)
+        
+        day_counts = defaultdict(int)
+        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        
+        for model in network_models.values():
+            incidents = model.objects.filter(
+                date_time_incident__gte=start_date,
+                date_time_incident__lte=end_date
+            )
+            
+            for incident in incidents:
+                day_name = incident.date_time_incident.strftime('%A')
+                day_counts[day_name] += 1
+        
+        return {
+            'labels': day_order,
+            'data': [day_counts.get(day, 0) for day in day_order],
+            'peak_day': max(day_counts.items(), key=lambda x: x[1])[0] if day_counts else 'N/A'
+        }
+        
+    except Exception as e:
+        return {'labels': [], 'data': [], 'peak_day': 'N/A'}
+
+
+def get_network_health_score(network_stats):
+    """Calculate health score for each network (0-100)"""
+    try:
+        health_scores = {}
+        
+        for network_type, stats in network_stats.items():
+            total = stats['total']
+            active = stats['active']
+            
+            if total == 0:
+                health_score = 100
+            else:
+                # Calculate based on active incidents ratio and severity
+                active_ratio = active / total
+                severity_counts = stats['severity_counts']
+                
+                # Weight by severity
+                severity_score = (
+                    severity_counts['new'] * 0.9 +
+                    severity_counts['low'] * 0.7 +
+                    severity_counts['medium'] * 0.4 +
+                    severity_counts['critical'] * 0.1
+                ) / max(active, 1)
+                
+                # Combine factors
+                health_score = int((1 - active_ratio * 0.5) * severity_score * 100)
+                health_score = max(0, min(100, health_score))
+            
+            health_scores[network_type] = {
+                'name': stats['name'],
+                'score': health_score,
+                'status': get_health_status(health_score)
+            }
+        
+        return health_scores
+        
+    except Exception as e:
+        return {}
+
+
+def get_health_status(score):
+    """Convert health score to status label"""
+    if score >= 90:
+        return 'Excellent'
+    elif score >= 75:
+        return 'Good'
+    elif score >= 60:
+        return 'Fair'
+    elif score >= 40:
+        return 'Poor'
+    else:
+        return 'Critical'

@@ -459,6 +459,89 @@
     </div>
 </div>
 
+<!-- Distribution Analysis Section -->
+<div class="row g-4 mb-4">
+    <!-- Cause Distribution -->
+    <div class="col-lg-6">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-exclamation-diamond me-2 text-danger"></i>Top Incident Causes
+                </h5>
+                <small class="text-muted">Most common incident causes</small>
+            </div>
+            <div class="card-body">
+                <canvas id="causeChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Origin Distribution -->
+    <div class="col-lg-6">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-geo-alt me-2 text-primary"></i>Incident Origins
+                </h5>
+                <small class="text-muted">Where incidents originate from</small>
+            </div>
+            <div class="card-body">
+                <canvas id="originChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resolution Time Distribution & Day Pattern -->
+<div class="row g-4 mb-4">
+    <!-- Resolution Time Distribution -->
+    <div class="col-lg-7">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-speedometer2 me-2 text-info"></i>Resolution Time Distribution
+                </h5>
+                <small class="text-muted">How long incidents take to resolve</small>
+            </div>
+            <div class="card-body">
+                <canvas id="resolutionDistChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Day of Week Pattern -->
+    <div class="col-lg-5">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-calendar-week me-2 text-success"></i>Day of Week Pattern
+                </h5>
+                <small class="text-muted">Busiest day: <span id="peakDayDisplay">--</span></small>
+            </div>
+            <div class="card-body">
+                <canvas id="dayChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Network Health Scores -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-heart-pulse me-2 text-danger"></i>Network Health Scores
+                </h5>
+                <small class="text-muted">Overall network health assessment (0-100)</small>
+            </div>
+            <div class="card-body">
+                <canvas id="healthChart" height="350"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Recent Incidents -->
 <div class="row">
     <div class="col-12">
@@ -637,6 +720,13 @@ function initializeCharts() {
         initHourlyChart();
         initNetworkTrendsChart();
         initResolutionChart();
+
+        // Section C Charts
+        initCauseChart();
+        initOriginChart();
+        initResolutionDistChart();
+        initDayChart();
+        initHealthChart();
         
         console.log('All charts initialized successfully');
     } catch (error) {
@@ -1040,6 +1130,333 @@ function initResolutionChart() {
         console.log('Resolution chart created successfully');
     } catch (error) {
         console.error('Error creating resolution chart:', error);
+    }
+}
+
+// SECTION C: Distribution Chart Initializations
+function initCauseChart() {
+    console.log('Initializing cause distribution chart...');
+    const ctx = document.getElementById('causeChart');
+    if (!ctx || !chartData.cause_distribution) {
+        console.error('Cause chart: Missing canvas or data');
+        return;
+    }
+    
+    const causeData = chartData.cause_distribution;
+    console.log('Cause chart data:', causeData);
+    
+    if (causeData.labels.length === 0) {
+        const canvasCtx = ctx.getContext('2d');
+        canvasCtx.fillStyle = '#6c757d';
+        canvasCtx.font = '14px Arial';
+        canvasCtx.textAlign = 'center';
+        canvasCtx.fillText('No cause data available', ctx.width/2, ctx.height/2);
+        return;
+    }
+    
+    try {
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: causeData.labels,
+                datasets: [{
+                    data: causeData.data,
+                    backgroundColor: [
+                        '#dc3545', '#fd7e14', '#ffc107', '#20c997', '#0dcaf0',
+                        '#0d6efd', '#6f42c1', '#d63384', '#198754', '#6c757d'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            padding: 10,
+                            usePointStyle: true,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = causeData.total;
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        console.log('Cause chart created successfully');
+    } catch (error) {
+        console.error('Error creating cause chart:', error);
+    }
+}
+
+function initOriginChart() {
+    console.log('Initializing origin distribution chart...');
+    const ctx = document.getElementById('originChart');
+    if (!ctx || !chartData.origin_distribution) {
+        console.error('Origin chart: Missing canvas or data');
+        return;
+    }
+    
+    const originData = chartData.origin_distribution;
+    console.log('Origin chart data:', originData);
+    
+    if (originData.labels.length === 0) {
+        const canvasCtx = ctx.getContext('2d');
+        canvasCtx.fillStyle = '#6c757d';
+        canvasCtx.font = '14px Arial';
+        canvasCtx.textAlign = 'center';
+        canvasCtx.fillText('No origin data available', ctx.width/2, ctx.height/2);
+        return;
+    }
+    
+    try {
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: originData.labels,
+                datasets: [{
+                    data: originData.data,
+                    backgroundColor: [
+                        '#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0',
+                        '#6f42c1', '#fd7e14', '#20c997', '#d63384', '#6c757d'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            padding: 10,
+                            usePointStyle: true,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = originData.total;
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        console.log('Origin chart created successfully');
+    } catch (error) {
+        console.error('Error creating origin chart:', error);
+    }
+}
+
+function initResolutionDistChart() {
+    console.log('Initializing resolution distribution chart...');
+    const ctx = document.getElementById('resolutionDistChart');
+    if (!ctx || !chartData.resolution_distribution) {
+        console.error('Resolution dist chart: Missing canvas or data');
+        return;
+    }
+    
+    const resData = chartData.resolution_distribution;
+    console.log('Resolution distribution data:', resData);
+    
+    try {
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: resData.labels,
+                datasets: [{
+                    label: 'Number of Incidents',
+                    data: resData.data,
+                    backgroundColor: 'rgba(13, 110, 253, 0.6)',
+                    borderColor: '#0d6efd',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+        console.log('Resolution distribution chart created successfully');
+    } catch (error) {
+        console.error('Error creating resolution dist chart:', error);
+    }
+}
+
+function initDayChart() {
+    console.log('Initializing day of week chart...');
+    const ctx = document.getElementById('dayChart');
+    if (!ctx || !chartData.day_distribution) {
+        console.error('Day chart: Missing canvas or data');
+        return;
+    }
+    
+    const dayData = chartData.day_distribution;
+    console.log('Day chart data:', dayData);
+    
+    // Update peak day display
+    if (dayData.peak_day) {
+        document.getElementById('peakDayDisplay').textContent = dayData.peak_day;
+    }
+    
+    try {
+        new Chart(ctx, {
+            type: 'polarArea',
+            data: {
+                labels: dayData.labels,
+                datasets: [{
+                    data: dayData.data,
+                    backgroundColor: [
+                        'rgba(13, 110, 253, 0.6)',
+                        'rgba(25, 135, 84, 0.6)',
+                        'rgba(255, 193, 7, 0.6)',
+                        'rgba(220, 53, 69, 0.6)',
+                        'rgba(111, 66, 193, 0.6)',
+                        'rgba(13, 202, 240, 0.6)',
+                        'rgba(253, 126, 20, 0.6)'
+                    ],
+                    borderColor: '#ffffff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 10,
+                            usePointStyle: true
+                        }
+                    }
+                },
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+        console.log('Day chart created successfully');
+    } catch (error) {
+        console.error('Error creating day chart:', error);
+    }
+}
+
+function initHealthChart() {
+    console.log('Initializing health score chart...');
+    const ctx = document.getElementById('healthChart');
+    if (!ctx || !chartData.health_scores) {
+        console.error('Health chart: Missing canvas or data');
+        return;
+    }
+    
+    const healthData = chartData.health_scores;
+    console.log('Health score data:', healthData);
+    
+    const labels = [];
+    const scores = [];
+    const colors = [];
+    
+    Object.values(healthData).forEach(network => {
+        labels.push(network.name);
+        scores.push(network.score);
+        // Color based on score
+        if (network.score >= 90) colors.push('#198754');
+        else if (network.score >= 75) colors.push('#20c997');
+        else if (network.score >= 60) colors.push('#ffc107');
+        else if (network.score >= 40) colors.push('#fd7e14');
+        else colors.push('#dc3545');
+    });
+    
+    try {
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Health Score',
+                    data: scores,
+                    backgroundColor: colors,
+                    borderColor: colors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const score = context.parsed.x;
+                                const status = Object.values(healthData)[context.dataIndex].status;
+                                return `Score: ${score}/100 (${status})`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        console.log('Health chart created successfully');
+    } catch (error) {
+        console.error('Error creating health chart:', error);
     }
 }
 
