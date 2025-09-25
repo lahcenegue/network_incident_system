@@ -3,6 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Avg
 from django.utils import timezone
 from datetime import timedelta, datetime
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+
 import json
 from incidents.models import (
     TransportNetworkIncident, FileAccessNetworkIncident, 
@@ -715,3 +718,102 @@ def get_health_status(score):
         return 'Poor'
     else:
         return 'Critical'
+    
+@login_required
+@require_http_methods(["GET"])
+def refresh_chart_data(request):
+    """AJAX endpoint to refresh chart data without page reload"""
+    try:
+        # Define network models
+        network_models = {
+            'transport': TransportNetworkIncident,
+            'file_access': FileAccessNetworkIncident,
+            'radio_access': RadioAccessNetworkIncident,
+            'core': CoreNetworkIncident,
+            'backbone_internet': BackboneInternetNetworkIncident,
+        }
+        
+        # Get refresh parameters from request
+        period = request.GET.get('period', '7')  # 7 or 30 days
+        days = int(period)
+        
+        # Calculate statistics
+        total_incidents = sum(model.objects.count() for model in network_models.values())
+        active_incidents = sum(
+            model.objects.filter(date_time_recovery__isnull=True).count() 
+            for model in network_models.values()
+        )
+        
+        now = timezone.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        resolved_today = sum(
+            model.objects.filter(
+                date_time_recovery__isnull=False,
+                date_time_recovery__gte=today_start
+            ).count()
+            for model in network_models.values()
+        )
+        
+        # Get network stats for severity
+        network_stats = {}
+        for network_type, model in network_models.items():
+            active_incidents_qs = model.objects.filter(date_time_recovery__isnull=True)
+            severity_counts = {'new': 0, 'low': 0, 'medium': 0, 'critical': 0}
+            
+            for incident in active_incidents_qs:
+                severity = incident.get_severity_class()
+                if severity == 'incident-new':
+                    severity_counts['new'] += 1
+                elif severity == 'incident-low':
+                    severity_counts['low'] += 1
+                elif severity == 'incident-medium':
+                    severity_counts['medium'] += 1
+                elif severity == 'incident-critical':
+                    severity_counts['critical'] += 1
+            
+            network_stats[network_type] = {
+                'name': get_network_display_name(network_type),
+                'total': model.objects.count(),
+                'active': active_incidents_qs.count(),
+                'severity_counts': severity_counts,
+            }
+        
+        # Calculate overall severity
+        overall_severity = {
+            'new': sum(stats['severity_counts']['new'] for stats in network_stats.values()),
+            'low': sum(stats['severity_counts']['low'] for stats in network_stats.values()),
+            'medium': sum(stats['severity_counts']['medium'] for stats in network_stats.values()),
+            'critical': sum(stats['severity_counts']['critical'] for stats in network_stats.values()),
+        }
+        
+        # Prepare chart data based on requested period
+        trend_data = get_chart_data_for_trends(network_models, days=days)
+        hourly_distribution = get_hourly_distribution_data(network_models, days=days)
+        network_trends = get_network_specific_trends(network_models, days=days)
+        peak_analysis = get_peak_time_analysis(network_models, days=days)
+        network_comparison = get_network_comparison_data(network_stats)
+        
+        # Return JSON response
+        return JsonResponse({
+            'success': True,
+            'timestamp': now.isoformat(),
+            'stats': {
+                'total_incidents': total_incidents,
+                'active_incidents': active_incidents,
+                'resolved_today': resolved_today,
+            },
+            'charts': {
+                'trend': trend_data,
+                'severity': overall_severity,
+                'hourly': hourly_distribution,
+                'network_trends': network_trends,
+                'network_comparison': network_comparison,
+                'peak_analysis': peak_analysis,
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

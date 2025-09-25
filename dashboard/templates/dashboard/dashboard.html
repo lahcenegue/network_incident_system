@@ -128,10 +128,99 @@
         0%, 100% { opacity: 1; transform: scale(1); }
         50% { opacity: 0.7; transform: scale(1.1); }
     }
+
+    .form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    }
+
+    /* Loading Indicator Animation */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateX(20px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+
+    #loadingIndicator {
+        animation: fadeIn 0.3s ease-in;
+        background: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    /* Notification Animations */
+    .alert {
+        animation: fadeIn 0.3s ease-in;
+    }
+
+    /* Chart Update Animation */
+    canvas {
+        transition: opacity 0.3s ease;
+    }
+
+    canvas.updating {
+        opacity: 0.6;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+<!-- Interactive Controls Panel -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body py-3">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-sliders me-2 text-primary fs-5"></i>
+                            <div>
+                                <strong>Dashboard Controls</strong>
+                                <small class="d-block text-muted">Customize your view</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-8">
+                        <div class="d-flex gap-3 justify-content-md-end align-items-center">
+                            <!-- Auto-refresh Toggle -->
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="autoRefreshToggle" checked>
+                                <label class="form-check-label" for="autoRefreshToggle">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Auto-refresh
+                                </label>
+                            </div>
+                            
+                            <!-- Refresh Interval -->
+                            <select class="form-select form-select-sm" id="refreshInterval" style="width: 140px;">
+                                <option value="30">30 seconds</option>
+                                <option value="60" selected>1 minute</option>
+                                <option value="120">2 minutes</option>
+                                <option value="300">5 minutes</option>
+                            </select>
+                            
+                            <!-- Manual Refresh Button -->
+                            <button class="btn btn-sm btn-primary" id="manualRefresh">
+                                <i class="bi bi-arrow-clockwise me-1"></i>Refresh Now
+                            </button>
+                            
+                            <!-- Export Button -->
+                            <button class="btn btn-sm btn-outline-secondary" id="exportDashboard">
+                                <i class="bi bi-download me-1"></i>Export
+                            </button>
+                            
+                            <!-- Last Update Display -->
+                            <small class="text-muted">
+                                Last updated: <span id="lastUpdateTime">--:--</span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Enhanced Statistics Cards -->
 <div class="row g-4 mb-4">
     <div class="col-xl-3 col-md-6">
@@ -666,18 +755,15 @@
 {% block page_js %}
 console.log('Dashboard page JS block executing...');
 
-// Check if Chart.js is loaded
 if (typeof Chart === 'undefined') {
     console.error('Chart.js is not loaded properly');
 } else {
     console.log('Chart.js loaded successfully, version:', Chart.version);
 }
 
-// Chart Data from Django
 const chartData = {{ chart_data|safe }};
 console.log('Chart data received:', chartData);
 
-// Chart.js Configuration
 const chartDefaults = {
     responsive: true,
     maintainAspectRatio: false,
@@ -703,7 +789,6 @@ let trendChart, severityChart, networkChart;
 function initializeCharts() {
     console.log('initializeCharts function called');
     try {
-        // Check if Chart is available
         if (typeof Chart === 'undefined') {
             console.error('Chart.js is not available');
             return;
@@ -1460,13 +1545,278 @@ function initHealthChart() {
     }
 }
 
-// Initialize everything - called immediately since we're in the page_js block
+
+// Section D: Real-time Updates 
+
+let autoRefreshInterval = null;
+let autoRefreshEnabled = true;
+
+function saveSettings() {
+    const settings = {
+        autoRefresh: document.getElementById('autoRefreshToggle')?.checked,
+        interval: document.getElementById('refreshInterval')?.value
+    };
+    localStorage.setItem('dashboardSettings', JSON.stringify(settings));
+}
+
+function loadSettings() {
+    const saved = localStorage.getItem('dashboardSettings');
+    if (saved) {
+        try {
+            const settings = JSON.parse(saved);
+            const toggle = document.getElementById('autoRefreshToggle');
+            const interval = document.getElementById('refreshInterval');
+            
+            if (toggle) toggle.checked = settings.autoRefresh;
+            if (interval) interval.value = settings.interval;
+            autoRefreshEnabled = settings.autoRefresh;
+        } catch (e) {
+            console.error('Error loading settings:', e);
+        }
+    }
+}
+
+function initInteractiveFeatures() {
+    console.log('Initializing interactive features...');
+    
+    loadSettings();
+    updateLastRefreshTime();
+    setupAutoRefresh();
+    
+    document.getElementById('manualRefresh')?.addEventListener('click', function() {
+        console.log('Manual refresh triggered');
+        refreshDashboardData();
+    });
+    
+    document.getElementById('autoRefreshToggle')?.addEventListener('change', function(e) {
+        autoRefreshEnabled = e.target.checked;
+        saveSettings();
+        if (autoRefreshEnabled) {
+            setupAutoRefresh();
+            showNotification('Auto-refresh enabled', 'success');
+        } else {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            showNotification('Auto-refresh disabled', 'info');
+        }
+    });
+    
+    document.getElementById('refreshInterval')?.addEventListener('change', function(e) {
+        saveSettings();
+        if (autoRefreshEnabled) {
+            setupAutoRefresh();
+            showNotification(`Refresh interval set to ${e.target.options[e.target.selectedIndex].text}`, 'info');
+        }
+    });
+    
+    document.getElementById('exportDashboard')?.addEventListener('click', function() {
+        exportDashboard();
+    });
+    
+    console.log('Interactive features initialized');
+}
+
+function setupAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    if (!autoRefreshEnabled) return;
+    
+    const intervalSelect = document.getElementById('refreshInterval');
+    const intervalSeconds = parseInt(intervalSelect?.value || 60);
+    const intervalMs = intervalSeconds * 1000;
+    
+    console.log(`Setting up auto-refresh: ${intervalSeconds} seconds`);
+    
+    autoRefreshInterval = setInterval(function() {
+        refreshDashboardData();
+    }, intervalMs);
+}
+
+function refreshDashboardData() {
+    console.log('Refreshing dashboard data...');
+    showLoadingIndicator();
+    
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    
+    fetch('{% url "dashboard:refresh_charts" %}?period=7', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            console.log('Data refreshed successfully:', data);
+            updateCharts(data);
+            updateStatistics(data.stats);
+            updateLastRefreshTime();
+            showNotification('Dashboard updated', 'success');
+        } else {
+            console.error('Refresh failed:', data.error);
+            showNotification('Refresh failed', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Refresh error:', error);
+        showNotification('Connection error - check console', 'danger');
+    })
+    .finally(() => {
+        hideLoadingIndicator();
+    });
+}
+
+function updateCharts(data) {
+    console.log('Updating charts with new data...');
+    
+    if (trendChart && data.charts.trend) {
+        trendChart.data.labels = data.charts.trend.map(d => d.display_date);
+        trendChart.data.datasets[0].data = data.charts.trend.map(d => d.count);
+        trendChart.update('active');
+    }
+    
+    if (severityChart && data.charts.severity) {
+        const severity = data.charts.severity;
+        severityChart.data.datasets[0].data = [severity.new, severity.low, severity.medium, severity.critical];
+        severityChart.update('active');
+    }
+    
+    if (networkChart && data.charts.network_comparison) {
+        const comparison = data.charts.network_comparison;
+        networkChart.data.datasets[0].data = comparison.active_data;
+        networkChart.data.datasets[1].data = comparison.total_data;
+        networkChart.update('active');
+    }
+}
+
+function updateStatistics(stats) {
+    console.log('Updating statistics:', stats);
+    const totalEl = document.querySelector('.enhanced-stat-card.total .stat-value');
+    const activeEl = document.querySelector('.enhanced-stat-card.active .stat-value');
+    const resolvedEl = document.querySelector('.enhanced-stat-card.resolved .stat-value');
+    
+    if (totalEl) totalEl.textContent = stats.total_incidents || 0;
+    if (activeEl) activeEl.textContent = stats.active_incidents || 0;
+    if (resolvedEl) resolvedEl.textContent = stats.resolved_today || 0;
+}
+
+function updateLastRefreshTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    
+    const element = document.getElementById('lastUpdateTime');
+    if (element) {
+        element.textContent = timeString;
+    }
+}
+
+function showLoadingIndicator() {
+    const existing = document.getElementById('loadingIndicator');
+    if (existing) return;
+    
+    const indicator = document.createElement('div');
+    indicator.id = 'loadingIndicator';
+    indicator.className = 'position-fixed top-0 end-0 m-3';
+    indicator.style.zIndex = '9999';
+    indicator.innerHTML = `
+        <div class="d-flex align-items-center bg-white p-3 rounded shadow">
+            <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <span class="text-muted">Updating...</span>
+        </div>
+    `;
+    document.body.appendChild(indicator);
+}
+
+function hideLoadingIndicator() {
+    const indicator = document.getElementById('loadingIndicator');
+    if (indicator) {
+        indicator.remove();
+    }
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    notification.style.zIndex = '9999';
+    notification.style.minWidth = '250px';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 150);
+    }, 3000);
+}
+
+function exportDashboard() {
+    showNotification('Opening print dialog - Save as PDF to export dashboard', 'info');
+    setTimeout(() => {
+        window.print();
+    }, 500);
+}
+
+function setupTrendToggle() {
+    const toggleElement = document.getElementById('trendPeriodToggle');
+    if (toggleElement) {
+        toggleElement.addEventListener('change', function(e) {
+            if (e.target.name === 'trendPeriod') {
+                updateTrendChart(e.target.value);
+            }
+        });
+    }
+}
+
+function updateTrendChart(period) {
+    if (!trendChart) return;
+    const data = period === '7' ? chartData.trend_7d : chartData.trend_30d;
+    if (!data) return;
+    
+    trendChart.data.labels = data.map(d => d.display_date);
+    trendChart.data.datasets[0].data = data.map(d => d.count);
+    trendChart.update('active');
+}
+
+const printStyles = document.createElement('style');
+printStyles.innerHTML = `
+    @media print {
+        .sidebar, .top-header, button, .form-check, .form-select {
+            display: none !important;
+        }
+        .main-content {
+            margin-left: 0 !important;
+        }
+        .card {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+    }
+`;
+document.head.appendChild(printStyles);
+
 console.log('About to initialize charts...');
 initializeCharts();
 setupTrendToggle();
 
-// Auto-refresh functionality (enhanced)
-setInterval(function() {
-    console.log('Dashboard auto-refresh tick - charts active');
-}, 30000);
+setTimeout(() => {
+    initInteractiveFeatures();
+}, 1000);
 {% endblock %}
