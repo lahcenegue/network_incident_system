@@ -26,8 +26,31 @@
     <!-- Page-specific CSS -->
     {% block extra_css %}{% endblock %}
     
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
+    <!-- Fix favicon 404 error -->
+    <link rel="icon" href="data:,">
+    
+    <!-- CRITICAL: Global Navigation Function - Must load FIRST -->
+    <script>
+        // Global navigation function available immediately
+        function navigateToNetwork(url) {
+            console.log('Navigating to:', url);
+            try {
+                window.location.href = url;
+            } catch (error) {
+                console.error('Navigation failed:', error);
+                window.location.assign(url);
+            }
+        }
+        
+        // Backup direct navigation functions
+        function goToTransport() { navigateToNetwork('/incidents/transport-networks/'); }
+        function goToFileAccess() { navigateToNetwork('/incidents/file-access-networks/'); }
+        function goToRadioAccess() { navigateToNetwork('/incidents/radio-access-networks/'); }
+        function goToCore() { navigateToNetwork('/incidents/core-networks/'); }
+        function goToBackbone() { navigateToNetwork('/incidents/backbone-internet-networks/'); }
+        
+        console.log('Global navigation functions loaded');
+    </script>
 </head>
 <body>
     <!-- Main Container -->

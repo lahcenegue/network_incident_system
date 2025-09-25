@@ -1,0 +1,509 @@
+/* Enhanced Dashboard Styles - Network Incident Management System */
+
+/* Dashboard-specific animations */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes countUp {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.fade-in {
+    animation: slideInUp 0.6s ease-out forwards;
+}
+
+/* Enhanced Statistics Cards */
+.enhanced-stat-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: none;
+    border-radius: 16px;
+    padding: 32px 28px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border-left: 6px solid;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.enhanced-stat-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%);
+    transform: rotate(45deg);
+    transition: all 0.6s ease;
+    opacity: 0;
+}
+
+.enhanced-stat-card:hover::before {
+    animation: shimmer 1.5s ease-in-out;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+        opacity: 0;
+    }
+}
+
+.enhanced-stat-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+
+.enhanced-stat-card:active {
+    transform: translateY(-4px) scale(0.98);
+}
+
+/* Stat card color themes */
+.enhanced-stat-card.total { 
+    border-left-color: #0d6efd; 
+    background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
+}
+.enhanced-stat-card.active { 
+    border-left-color: #dc3545; 
+    background: linear-gradient(135deg, #ffffff 0%, #fff5f5 100%);
+}
+.enhanced-stat-card.resolved { 
+    border-left-color: #198754; 
+    background: linear-gradient(135deg, #ffffff 0%, #f0fff4 100%);
+}
+.enhanced-stat-card.mttr { 
+    border-left-color: #6f42c1; 
+    background: linear-gradient(135deg, #ffffff 0%, #f8f5ff 100%);
+}
+
+/* Stat icons with enhanced gradients */
+.stat-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: white;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+}
+
+.enhanced-stat-card:hover .stat-icon {
+    transform: scale(1.1);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.2);
+}
+
+.enhanced-stat-card.total .stat-icon { 
+    background: linear-gradient(135deg, #0d6efd 0%, #4dabf7 100%); 
+}
+.enhanced-stat-card.active .stat-icon { 
+    background: linear-gradient(135deg, #dc3545 0%, #ff6b8a 100%); 
+}
+.enhanced-stat-card.resolved .stat-icon { 
+    background: linear-gradient(135deg, #198754 0%, #51cf66 100%); 
+}
+.enhanced-stat-card.mttr .stat-icon { 
+    background: linear-gradient(135deg, #6f42c1 0%, #9775fa 100%); 
+}
+
+/* Stat values with animation */
+.stat-value {
+    font-size: 3rem;
+    font-weight: 800;
+    color: #1a1a1a;
+    margin: 0 0 12px 0;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    animation: countUp 0.8s ease-out 0.3s both;
+}
+
+.stat-label {
+    font-size: 1.1rem;
+    color: #4a5568;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    letter-spacing: 0.025em;
+}
+
+.stat-subtitle {
+    font-size: 0.875rem;
+    color: #718096;
+    margin: 0;
+    font-weight: 500;
+}
+
+/* Network overview cards */
+.network-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px 20px;
+    border-left: 5px solid;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.network-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.1), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.network-card:hover::after {
+    opacity: 1;
+}
+
+.network-card:hover {
+    transform: translateY(-4px) translateX(4px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+}
+
+/* Network card themes */
+.network-card.transport { 
+    border-left-color: #0d6efd; 
+    background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
+}
+.network-card.file-access { 
+    border-left-color: #20c997; 
+    background: linear-gradient(135deg, #ffffff 0%, #f0fdf9 100%);
+}
+.network-card.radio-access { 
+    border-left-color: #ffc107; 
+    background: linear-gradient(135deg, #ffffff 0%, #fffbf0 100%);
+}
+.network-card.core { 
+    border-left-color: #198754; 
+    background: linear-gradient(135deg, #ffffff 0%, #f0fff4 100%);
+}
+.network-card.backbone { 
+    border-left-color: #6f42c1; 
+    background: linear-gradient(135deg, #ffffff 0%, #f8f5ff 100%);
+}
+
+/* Network icons with enhanced styling */
+.network-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: white;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+}
+
+.network-card:hover .network-icon {
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+}
+
+/* Network icon themes */
+.network-card.transport .network-icon { 
+    background: linear-gradient(135deg, #0d6efd 0%, #4dabf7 100%); 
+}
+.network-card.file-access .network-icon { 
+    background: linear-gradient(135deg, #20c997 0%, #51cf66 100%); 
+}
+.network-card.radio-access .network-icon { 
+    background: linear-gradient(135deg, #ffc107 0%, #ffd43b 100%); 
+}
+.network-card.core .network-icon { 
+    background: linear-gradient(135deg, #198754 0%, #51cf66 100%); 
+}
+.network-card.backbone .network-icon { 
+    background: linear-gradient(135deg, #6f42c1 0%, #9775fa 100%); 
+}
+
+/* Enhanced severity indicators */
+.severity-indicator {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    margin-right: 10px;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.severity-indicator::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8), transparent);
+}
+
+.severity-critical { 
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); 
+    animation: pulse-red 2s ease-in-out infinite;
+}
+.severity-medium { 
+    background: linear-gradient(135deg, #fd7e14 0%, #e55100 100%); 
+}
+.severity-low { 
+    background: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%); 
+}
+.severity-new { 
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%); 
+}
+.severity-resolved { 
+    background: linear-gradient(135deg, #198754 0%, #0d6efd 100%); 
+}
+
+@keyframes pulse-red {
+    0%, 100% { 
+        opacity: 1; 
+        transform: scale(1); 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2), 0 0 0 0 rgba(220, 53, 69, 0.7);
+    }
+    50% { 
+        opacity: 0.8; 
+        transform: scale(1.2); 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 8px rgba(220, 53, 69, 0);
+    }
+}
+
+/* Recent incidents table enhancement */
+.recent-incidents-table {
+    font-size: 0.9rem;
+}
+
+.recent-incidents-table tbody tr {
+    transition: all 0.2s ease;
+    border-left: 4px solid transparent;
+}
+
+.recent-incidents-table tbody tr:hover {
+    background-color: rgba(0,0,0,0.02);
+    transform: translateX(4px);
+    border-left-color: #0d6efd;
+}
+
+.incident-id {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+    font-weight: 700;
+    color: #495057;
+    font-size: 0.85rem;
+}
+
+.network-badge {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Auto-refresh indicator */
+.auto-refresh-indicator {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    background: linear-gradient(135deg, #343a40 0%, #495057 100%);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 1050;
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    backdrop-filter: blur(10px);
+}
+
+.auto-refresh-indicator.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.auto-refresh-indicator i {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Card enhancements */
+.card {
+    border: none;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-bottom: 1px solid #e9ecef;
+    padding: 1.5rem 1.25rem;
+}
+
+.card-title {
+    font-weight: 600;
+    color: #2d3748;
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+/* Quick actions dropdown enhancement */
+.dropdown-menu {
+    border: none;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    border-radius: 12px;
+    padding: 0.75rem 0;
+}
+
+.dropdown-item {
+    padding: 0.75rem 1.5rem;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.dropdown-item:hover {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    color: #0d6efd;
+    transform: translateX(4px);
+}
+
+.dropdown-item i {
+    width: 20px;
+}
+
+/* Responsive enhancements */
+@media (max-width: 768px) {
+    .enhanced-stat-card {
+        padding: 24px 20px;
+    }
+    
+    .stat-value {
+        font-size: 2.2rem;
+    }
+    
+    .stat-icon {
+        width: 56px;
+        height: 56px;
+        font-size: 26px;
+    }
+    
+    .network-card {
+        padding: 20px 16px;
+    }
+    
+    .network-icon {
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
+    }
+    
+    .auto-refresh-indicator {
+        top: 16px;
+        right: 16px;
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .enhanced-stat-card {
+        padding: 20px 16px;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+    }
+    
+    .stat-label {
+        font-size: 1rem;
+    }
+}
+
+/* Dark mode compatibility (future enhancement) */
+@media (prefers-color-scheme: dark) {
+    .enhanced-stat-card {
+        background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+        color: white;
+    }
+    
+    .stat-value {
+        color: white;
+    }
+    
+    .stat-label {
+        color: #e2e8f0;
+    }
+    
+    .stat-subtitle {
+        color: #a0aec0;
+    }
+    
+    .network-card {
+        background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+        color: white;
+    }
+}
+
+/* Print styles */
+@media print {
+    .enhanced-stat-card,
+    .network-card {
+        background: white !important;
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+    }
+    
+    .auto-refresh-indicator {
+        display: none !important;
+    }
+    
+    .btn {
+        display: none !important;
+    }
+}
