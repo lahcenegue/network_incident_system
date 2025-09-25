@@ -2,7 +2,8 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Avg
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
+import json
 from incidents.models import (
     TransportNetworkIncident, FileAccessNetworkIncident, 
     RadioAccessNetworkIncident, CoreNetworkIncident, 
@@ -11,7 +12,7 @@ from incidents.models import (
 
 @login_required
 def dashboard_view(request):
-    """Enhanced dashboard with real-time analytics"""
+    """Enhanced dashboard with real-time analytics and chart data"""
     try:
         # Define all network models for comprehensive statistics
         network_models = {
@@ -90,6 +91,11 @@ def dashboard_view(request):
             'critical': sum(stats['severity_counts']['critical'] for stats in network_stats.values()),
         }
         
+        # NEW: Prepare chart data
+        trend_data_7d = get_chart_data_for_trends(network_models, days=7)
+        trend_data_30d = get_chart_data_for_trends(network_models, days=30)
+        network_comparison = get_network_comparison_data(network_stats)
+        
         context = {
             'user': request.user,
             
@@ -119,6 +125,14 @@ def dashboard_view(request):
             'core_total': network_stats.get('core', {}).get('total', 0),
             'backbone_active': network_stats.get('backbone_internet', {}).get('active', 0),
             'backbone_total': network_stats.get('backbone_internet', {}).get('total', 0),
+            
+            # NEW: Chart data (JSON-safe format for JavaScript)
+            'chart_data': json.dumps({
+                'trend_7d': trend_data_7d,
+                'trend_30d': trend_data_30d,
+                'network_comparison': network_comparison,
+                'severity_distribution': overall_severity,
+            }),
         }
         
         return render(request, 'dashboard/dashboard.html', context)
@@ -134,6 +148,7 @@ def dashboard_view(request):
             'network_stats': {},
             'recent_incidents': [],
             'overall_severity': {'new': 0, 'low': 0, 'medium': 0, 'critical': 0},
+            'chart_data': json.dumps({}),
             'error': str(e)
         }
         return render(request, 'dashboard/dashboard.html', context)
@@ -222,3 +237,76 @@ def get_recent_incidents(network_models, limit=10):
         
     except Exception as e:
         return []
+
+
+def get_chart_data_for_trends(network_models, days=7):
+    """Get trend data for the last N days"""
+    try:
+        from django.db.models import Count
+        from datetime import datetime, timedelta
+        
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days-1)
+        
+        # Create date range
+        date_range = []
+        current_date = start_date
+        while current_date <= end_date:
+            date_range.append(current_date)
+            current_date += timedelta(days=1)
+        
+        # Get incident counts per day
+        trend_data = []
+        for date in date_range:
+            day_start = timezone.datetime.combine(date, timezone.datetime.min.time()).replace(tzinfo=timezone.get_current_timezone())
+            day_end = day_start + timedelta(days=1)
+            
+            day_count = 0
+            for model in network_models.values():
+                day_count += model.objects.filter(
+                    date_time_incident__gte=day_start,
+                    date_time_incident__lt=day_end
+                ).count()
+            
+            trend_data.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'count': day_count,
+                'display_date': date.strftime('%b %d')
+            })
+        
+        return trend_data
+        
+    except Exception as e:
+        # Return empty data structure
+        return []
+
+
+def get_network_comparison_data(network_stats):
+    """Format network data for comparison charts"""
+    try:
+        chart_data = {
+            'labels': [],
+            'active_data': [],
+            'total_data': [],
+            'colors': []
+        }
+        
+        # Network color scheme matching your CSS
+        color_map = {
+            'transport': '#0d6efd',
+            'file_access': '#20c997', 
+            'radio_access': '#ffc107',
+            'core': '#198754',
+            'backbone_internet': '#6f42c1'
+        }
+        
+        for network_type, stats in network_stats.items():
+            chart_data['labels'].append(stats['name'])
+            chart_data['active_data'].append(stats['active'])
+            chart_data['total_data'].append(stats['total'])
+            chart_data['colors'].append(color_map.get(network_type, '#6c757d'))
+        
+        return chart_data
+        
+    except Exception as e:
+        return {'labels': [], 'active_data': [], 'total_data': [], 'colors': []}

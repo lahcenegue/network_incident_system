@@ -357,6 +357,58 @@
     </div>
 </div>
 
+<!-- Charts and Analytics Section -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-graph-up me-2 text-primary"></i>Incident Trends
+                </h5>
+                <div class="btn-group btn-group-sm" role="group" id="trendPeriodToggle">
+                    <input type="radio" class="btn-check" name="trendPeriod" id="trend7d" value="7" checked>
+                    <label class="btn btn-outline-primary" for="trend7d">7 Days</label>
+                    
+                    <input type="radio" class="btn-check" name="trendPeriod" id="trend30d" value="30">
+                    <label class="btn btn-outline-primary" for="trend30d">30 Days</label>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="trendChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-pie-chart me-2 text-warning"></i>Severity Distribution
+                </h5>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+                <canvas id="severityChart" width="300" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Network Comparison Chart -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-bar-chart me-2 text-success"></i>Network Comparison
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="networkChart" height="400"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Recent Incidents -->
 <div class="row">
     <div class="col-12">
@@ -479,14 +531,288 @@
 {% endblock %}
 
 {% block page_js %}
-// Simple dashboard functionality
-console.log('Dashboard page loaded successfully');
+console.log('Dashboard page JS block executing...');
 
-// Test the navigation function
-console.log('Navigation function available:', typeof navigateToNetwork);
+// Check if Chart.js is loaded
+if (typeof Chart === 'undefined') {
+    console.error('Chart.js is not loaded properly');
+} else {
+    console.log('Chart.js loaded successfully, version:', Chart.version);
+}
 
-// Auto-refresh functionality
+// Chart Data from Django
+const chartData = {{ chart_data|safe }};
+console.log('Chart data received:', chartData);
+
+// Chart.js Configuration
+const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: {
+            display: true,
+            position: 'top',
+        },
+    },
+    scales: {
+        y: {
+            beginAtZero: true,
+            ticks: {
+                precision: 0
+            }
+        }
+    }
+};
+
+// Initialize Charts
+let trendChart, severityChart, networkChart;
+
+function initializeCharts() {
+    console.log('initializeCharts function called');
+    try {
+        // Check if Chart is available
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js is not available');
+            return;
+        }
+        
+        console.log('Starting chart initialization...');
+        
+        // 1. Trend Line Chart
+        initTrendChart();
+        
+        // 2. Severity Pie Chart  
+        initSeverityChart();
+        
+        // 3. Network Comparison Bar Chart
+        initNetworkChart();
+        
+        console.log('All charts initialized successfully');
+    } catch (error) {
+        console.error('Error initializing charts:', error);
+    }
+}
+
+function initTrendChart() {
+    console.log('Initializing trend chart...');
+    const ctx = document.getElementById('trendChart');
+    if (!ctx) {
+        console.error('Trend chart canvas element not found');
+        return;
+    }
+    
+    if (!chartData.trend_7d) {
+        console.error('Trend chart data not available');
+        return;
+    }
+    
+    const trendData7d = chartData.trend_7d;
+    console.log('Trend chart data:', trendData7d);
+    
+    try {
+        trendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: trendData7d.map(d => d.display_date),
+                datasets: [{
+                    label: 'Incidents',
+                    data: trendData7d.map(d => d.count),
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#0d6efd',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                }]
+            },
+            options: {
+                ...chartDefaults,
+                plugins: {
+                    ...chartDefaults.plugins,
+                    title: {
+                        display: false
+                    }
+                }
+            }
+        });
+        console.log('Trend chart created successfully');
+    } catch (error) {
+        console.error('Error creating trend chart:', error);
+    }
+}
+
+function initSeverityChart() {
+    console.log('Initializing severity chart...');
+    const ctx = document.getElementById('severityChart');
+    if (!ctx) {
+        console.error('Severity chart canvas element not found');
+        return;
+    }
+    
+    if (!chartData.severity_distribution) {
+        console.error('Severity chart data not available');
+        return;
+    }
+    
+    const severity = chartData.severity_distribution;
+    const hasData = severity.new || severity.low || severity.medium || severity.critical;
+    
+    console.log('Severity chart data:', severity, 'Has data:', hasData);
+    
+    if (!hasData) {
+        console.log('No active incidents for severity chart');
+        const canvasCtx = ctx.getContext('2d');
+        canvasCtx.fillStyle = '#6c757d';
+        canvasCtx.font = '16px Arial';
+        canvasCtx.textAlign = 'center';
+        canvasCtx.fillText('No active incidents', ctx.width/2, ctx.height/2);
+        return;
+    }
+    
+    try {
+        severityChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['New', 'Low', 'Medium', 'Critical'],
+                datasets: [{
+                    data: [severity.new, severity.low, severity.medium, severity.critical],
+                    backgroundColor: [
+                        '#6c757d', // New - gray
+                        '#ffc107', // Low - yellow
+                        '#fd7e14', // Medium - orange  
+                        '#dc3545'  // Critical - red
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                        }
+                    }
+                }
+            }
+        });
+        console.log('Severity chart created successfully');
+    } catch (error) {
+        console.error('Error creating severity chart:', error);
+    }
+}
+
+function initNetworkChart() {
+    console.log('Initializing network chart...');
+    const ctx = document.getElementById('networkChart');
+    if (!ctx) {
+        console.error('Network chart canvas element not found');
+        return;
+    }
+    
+    if (!chartData.network_comparison) {
+        console.error('Network chart data not available');
+        return;
+    }
+    
+    const comparison = chartData.network_comparison;
+    console.log('Network chart data:', comparison);
+    
+    try {
+        networkChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: comparison.labels,
+                datasets: [
+                    {
+                        label: 'Active Incidents',
+                        data: comparison.active_data,
+                        backgroundColor: 'rgba(220, 53, 69, 0.8)',
+                        borderColor: '#dc3545',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Total Incidents',
+                        data: comparison.total_data,
+                        backgroundColor: 'rgba(13, 110, 253, 0.3)',
+                        borderColor: '#0d6efd',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                ...chartDefaults,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+        console.log('Network chart created successfully');
+    } catch (error) {
+        console.error('Error creating network chart:', error);
+    }
+}
+
+// Trend Period Toggle
+function setupTrendToggle() {
+    const toggleElement = document.getElementById('trendPeriodToggle');
+    if (toggleElement) {
+        toggleElement.addEventListener('change', function(e) {
+            if (e.target.name === 'trendPeriod') {
+                updateTrendChart(e.target.value);
+            }
+        });
+        console.log('Trend toggle event listener attached');
+    } else {
+        console.error('Trend toggle element not found');
+    }
+}
+
+function updateTrendChart(period) {
+    if (!trendChart) {
+        console.log('Trend chart not available for update');
+        return;
+    }
+    
+    const data = period === '7' ? chartData.trend_7d : chartData.trend_30d;
+    if (!data) {
+        console.log('No data available for period:', period);
+        return;
+    }
+    
+    trendChart.data.labels = data.map(d => d.display_date);
+    trendChart.data.datasets[0].data = data.map(d => d.count);
+    trendChart.update('active');
+    
+    console.log(`Trend chart updated to ${period} days`);
+}
+
+// Initialize everything - called immediately since we're in the page_js block
+console.log('About to initialize charts...');
+initializeCharts();
+setupTrendToggle();
+
+// Auto-refresh functionality (enhanced)
 setInterval(function() {
-    console.log('Dashboard auto-refresh tick');
+    console.log('Dashboard auto-refresh tick - charts active');
 }, 30000);
 {% endblock %}
