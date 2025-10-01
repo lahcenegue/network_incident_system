@@ -1,0 +1,202 @@
+{% load incident_tags %}
+
+<div class="incident-detail-container">
+    <!-- Header with Severity Badge -->
+    <div class="detail-header mb-4 p-3 rounded" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+        <div class="row align-items-center text-white">
+            <div class="col-md-8">
+                <h6 class="mb-1"><i class="bi bi-hdd-network me-2"></i>File Access Network Incident</h6>
+                <p class="mb-0 small opacity-75">ID: {{ incident.id|truncate_id }}</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                {% if incident.date_time_recovery %}
+                    <span class="badge bg-success fs-6">Resolved</span>
+                {% else %}
+                    {% with severity=incident.get_severity_class %}
+                        {% if severity == 'incident-critical' %}
+                            <span class="badge bg-danger fs-6">Critical</span>
+                        {% elif severity == 'incident-medium' %}
+                            <span class="badge bg-warning text-dark fs-6">Medium</span>
+                        {% elif severity == 'incident-low' %}
+                            <span class="badge bg-warning fs-6">Low</span>
+                        {% else %}
+                            <span class="badge bg-secondary fs-6">New</span>
+                        {% endif %}
+                    {% endwith %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Information Grid -->
+    <div class="row g-3 mb-4">
+        <!-- DO/Wilaya -->
+        <div class="col-md-4">
+            <div class="detail-field">
+                <label class="detail-label"><i class="bi bi-geo-alt me-1"></i>DO / Wilaya</label>
+                <div class="detail-value">{{ incident.do_wilaya|default:"Not specified" }}</div>
+            </div>
+        </div>
+
+        <!-- Zone/Metro -->
+        <div class="col-md-4">
+            <div class="detail-field">
+                <label class="detail-label"><i class="bi bi-map me-1"></i>Zone / Metro</label>
+                <div class="detail-value">{{ incident.zone_metro|default:"Not specified" }}</div>
+            </div>
+        </div>
+
+        <!-- Site -->
+        <div class="col-md-4">
+            <div class="detail-field">
+                <label class="detail-label"><i class="bi bi-building me-1"></i>Site</label>
+                <div class="detail-value">{{ incident.site|default:"Not specified" }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IP Address -->
+    <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-header bg-light">
+            <h6 class="mb-0"><i class="bi bi-ethernet me-2"></i>Network Information</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-12">
+                    <div class="border-start border-success border-3 ps-3">
+                        <strong class="text-success">IP Address</strong>
+                        <p class="mb-0 mt-2 font-monospace fs-5">{{ incident.ip_address|default:"Not specified" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeline Information -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="detail-field">
+                <label class="detail-label"><i class="bi bi-calendar-event me-1"></i>Incident Date & Time</label>
+                <div class="detail-value">{{ incident.date_time_incident|date:"d/m/Y H:i" }}</div>
+                <small class="text-muted">{{ incident.date_time_incident|time_since }}</small>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="detail-field">
+                <label class="detail-label"><i class="bi bi-check-circle me-1"></i>Recovery Date & Time</label>
+                <div class="detail-value">
+                    {% if incident.date_time_recovery %}
+                        {{ incident.date_time_recovery|date:"d/m/Y H:i" }}
+                        <span class="badge bg-success ms-2">Resolved</span>
+                    {% else %}
+                        <span class="text-warning">Still Active</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="detail-field">
+                <label class="detail-label"><i class="bi bi-clock-history me-1"></i>Duration</label>
+                <div class="detail-value">
+                    <span class="badge bg-secondary fs-6">{{ incident|duration_display }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cause and Origin -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="detail-field">
+                <label class="detail-label"><i class="bi bi-exclamation-triangle me-1"></i>Cause</label>
+                <div class="detail-value">
+                    {% if incident.cause %}
+                        <span class="badge bg-warning text-dark">{{ incident.cause }}</span>
+                    {% else %}
+                        <span class="text-muted">Not specified</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="detail-field">
+                <label class="detail-label"><i class="bi bi-geo me-1"></i>Origin</label>
+                <div class="detail-value">
+                    {% if incident.origin %}
+                        <span class="badge bg-info">{{ incident.origin }}</span>
+                    {% else %}
+                        <span class="text-muted">Not specified</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Impact/Comment -->
+    {% if incident.impact_comment %}
+    <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-header bg-light">
+            <h6 class="mb-0"><i class="bi bi-chat-left-text me-2"></i>Impact / Comment</h6>
+        </div>
+        <div class="card-body">
+            <p class="mb-0" style="white-space: pre-wrap;">{{ incident.impact_comment }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Audit Trail -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-light">
+            <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Audit Trail</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <small class="text-muted d-block">Created By</small>
+                    <strong>{{ incident.created_by.get_full_name|default:incident.created_by.username }}</strong>
+                    <br>
+                    <small class="text-muted">{{ incident.created_at|date:"d/m/Y H:i" }}</small>
+                </div>
+
+                {% if incident.updated_by %}
+                <div class="col-md-6">
+                    <small class="text-muted d-block">Last Updated By</small>
+                    <strong>{{ incident.updated_by.get_full_name|default:incident.updated_by.username }}</strong>
+                    <br>
+                    <small class="text-muted">{{ incident.updated_at|date:"d/m/Y H:i" }}</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.detail-field {
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 0.375rem;
+    height: 100%;
+}
+
+.detail-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.detail-value {
+    font-size: 1rem;
+    color: #212529;
+    font-weight: 500;
+}
+
+.detail-header {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+</style>

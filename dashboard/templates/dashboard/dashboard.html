@@ -205,8 +205,8 @@
                             </button>
                             
                             <!-- Export Button -->
-                            <button class="btn btn-sm btn-outline-secondary" id="exportDashboard">
-                                <i class="bi bi-download me-1"></i>Export
+                            <button class="btn btn-sm btn-outline-primary" id="exportDashboard" data-bs-toggle="modal" data-bs-target="#pdfExportModal">
+                                <i class="bi bi-file-pdf me-1"></i>Export PDF
                             </button>
                             
                             <!-- Last Update Display -->
@@ -750,6 +750,103 @@
     </div>
 </div>
 {% endif %}
+
+<!-- PDF Export Date Range Modal -->
+<div class="modal fade" id="pdfExportModal" tabindex="-1" aria-labelledby="pdfExportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="pdfExportModalLabel">
+                    <i class="bi bi-file-pdf me-2"></i>Generate PDF Report
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <form id="pdfExportForm" method="POST" action="{% url 'dashboard:generate_pdf' %}">
+                {% csrf_token %}
+                
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Select Date Range:</strong> Choose the period for incidents to include in the PDF report.
+                    </div>
+                    
+                    <!-- Start Date & Time -->
+                    <div class="mb-3">
+                        <label for="startDateTime" class="form-label fw-bold">
+                            <i class="bi bi-calendar-check me-1"></i>Start Date & Time
+                        </label>
+                        <input type="datetime-local" 
+                               class="form-control form-control-lg" 
+                               id="startDateTime" 
+                               name="start_date" 
+                               required>
+                        <small class="text-muted">Start of the reporting period</small>
+                    </div>
+                    
+                    <!-- End Date & Time -->
+                    <div class="mb-3">
+                        <label for="endDateTime" class="form-label fw-bold">
+                            <i class="bi bi-calendar-x me-1"></i>End Date & Time
+                        </label>
+                        <input type="datetime-local" 
+                               class="form-control form-control-lg" 
+                               id="endDateTime" 
+                               name="end_date" 
+                               required>
+                        <small class="text-muted">End of the reporting period</small>
+                    </div>
+                    
+                    <!-- Quick Date Presets -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Quick Presets:</label>
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setDateRange('today')">
+                                Today
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setDateRange('yesterday')">
+                                Yesterday
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setDateRange('7days')">
+                                Last 7 Days
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setDateRange('30days')">
+                                Last 30 Days
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Validation Message -->
+                    <div id="dateValidationMessage" class="alert alert-danger d-none">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <span id="validationText"></span>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i>Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="generatePdfBtn">
+                        <i class="bi bi-file-pdf me-1"></i>Generate PDF Report
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay for PDF Generation -->
+<div id="pdfLoadingOverlay" class="d-none position-fixed top-0 start-0 w-100 h-100" 
+     style="background: rgba(0,0,0,0.7); z-index: 9999;">
+    <div class="position-absolute top-50 start-50 translate-middle text-center">
+        <div class="spinner-border text-light mb-3" style="width: 4rem; height: 4rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <h4 class="text-white">Generating PDF Report...</h4>
+        <p class="text-light">This may take a few moments. Please wait.</p>
+    </div>
+</div>
 {% endblock %}
 
 {% block page_js %}
@@ -1768,12 +1865,215 @@ function showNotification(message, type = 'info') {
 }
 
 function exportDashboard() {
-    showNotification('Opening print dialog - Save as PDF to export dashboard', 'info');
-    setTimeout(() => {
-        window.print();
-    }, 500);
+    // This function is now replaced by the modal
+    // The button now opens the modal instead
+    console.log('Export button clicked - modal should open');
 }
 
+// PDF Export - Complete Working Version
+(function() {
+    'use strict';
+    
+    // Global functions for preset buttons
+    window.setDateRange = function(preset) {
+        const now = new Date();
+        let startDate, endDate;
+        
+        switch(preset) {
+            case 'today':
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0);
+                endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59);
+                break;
+            case 'yesterday':
+                const yesterday = new Date(now);
+                yesterday.setDate(yesterday.getDate() - 1);
+                startDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0);
+                endDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59);
+                break;
+            case '7days':
+                startDate = new Date(now);
+                startDate.setDate(startDate.getDate() - 7);
+                startDate.setHours(0, 0, 0, 0);
+                endDate = new Date(now);
+                break;
+            case '30days':
+                startDate = new Date(now);
+                startDate.setDate(startDate.getDate() - 30);
+                startDate.setHours(0, 0, 0, 0);
+                endDate = new Date(now);
+                break;
+        }
+        
+        const startInput = document.getElementById('startDateTime');
+        const endInput = document.getElementById('endDateTime');
+        
+        if (startInput && endInput) {
+            startInput.value = window.formatDateTimeLocal(startDate);
+            endInput.value = window.formatDateTimeLocal(endDate);
+            hideValidationMessage();
+        }
+    };
+    
+    window.formatDateTimeLocal = function(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+    
+    function validateDateRange() {
+        const startInput = document.getElementById('startDateTime');
+        const endInput = document.getElementById('endDateTime');
+        
+        if (!startInput || !endInput) return false;
+        
+        if (!startInput.value || !endInput.value) {
+            showValidationMessage('Veuillez sélectionner les dates de début et de fin.');
+            return false;
+        }
+        
+        const startDate = new Date(startInput.value);
+        const endDate = new Date(endInput.value);
+        const now = new Date();
+        
+        if (startDate >= endDate) {
+            showValidationMessage('La date de début doit être antérieure à la date de fin.');
+            return false;
+        }
+        
+        if (endDate > now) {
+            showValidationMessage('La date de fin ne peut pas être dans le futur.');
+            return false;
+        }
+        
+        const hoursDiff = (endDate - startDate) / (1000 * 60 * 60);
+        if (hoursDiff < 1) {
+            showValidationMessage('La plage de dates doit être d\'au moins 1 heure.');
+            return false;
+        }
+        
+        const daysDiff = (endDate - startDate) / (1000 * 60 * 60 * 24);
+        if (daysDiff > 365) {
+            showValidationMessage('La plage de dates ne peut pas dépasser 1 an.');
+            return false;
+        }
+        
+        hideValidationMessage();
+        return true;
+    }
+    
+    function showValidationMessage(message) {
+        const messageDiv = document.getElementById('dateValidationMessage');
+        const textSpan = document.getElementById('validationText');
+        if (messageDiv && textSpan) {
+            textSpan.textContent = message;
+            messageDiv.classList.remove('d-none');
+        }
+    }
+    
+    function hideValidationMessage() {
+        const messageDiv = document.getElementById('dateValidationMessage');
+        if (messageDiv) {
+            messageDiv.classList.add('d-none');
+        }
+    }
+    
+    function showPdfLoadingOverlay() {
+        const overlay = document.getElementById('pdfLoadingOverlay');
+        if (overlay) overlay.classList.remove('d-none');
+    }
+    
+    function hidePdfLoadingOverlay() {
+        const overlay = document.getElementById('pdfLoadingOverlay');
+        if (overlay) overlay.classList.add('d-none');
+    }
+    
+    // Single DOMContentLoaded handler
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form submission
+        const pdfForm = document.getElementById('pdfExportForm');
+        if (pdfForm) {
+            pdfForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                if (!validateDateRange()) return;
+                
+                showPdfLoadingOverlay();
+                
+                try {
+                    const formData = new FormData(this);
+                    const response = await fetch('{% url "dashboard:generate_pdf" %}', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+                    });
+                    
+                    if (response.ok) {
+                        const contentType = response.headers.get('content-type');
+                        
+                        if (contentType && contentType.includes('application/json')) {
+                            const data = await response.json();
+                            hidePdfLoadingOverlay();
+                            showNotification(data.error || 'Échec de la génération du PDF', 'danger');
+                        } else {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            
+                            const disposition = response.headers.get('Content-Disposition');
+                            let filename = 'rapport_incidents.pdf';
+                            if (disposition && disposition.includes('filename=')) {
+                                filename = disposition.split('filename=')[1].replace(/"/g, '');
+                            }
+                            
+                            a.download = filename;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                            
+                            hidePdfLoadingOverlay();
+                            showNotification('Rapport PDF généré avec succès!', 'success');
+                            
+                            const modalEl = document.getElementById('pdfExportModal');
+                            if (modalEl) {
+                                const modal = bootstrap.Modal.getInstance(modalEl);
+                                if (modal) modal.hide();
+                            }
+                        }
+                    } else {
+                        const data = await response.json().catch(() => ({ error: 'Erreur serveur' }));
+                        hidePdfLoadingOverlay();
+                        showNotification(data.error || `Erreur: ${response.status}`, 'danger');
+                    }
+                } catch (error) {
+                    hidePdfLoadingOverlay();
+                    showNotification(`Erreur réseau: ${error.message}`, 'danger');
+                    console.error('Erreur génération PDF:', error);
+                }
+            });
+        }
+        
+        // Modal initialization
+        const pdfModal = document.getElementById('pdfExportModal');
+        if (pdfModal) {
+            pdfModal.addEventListener('show.bs.modal', function() {
+                const now = new Date();
+                const oneDayAgo = new Date(now);
+                oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+                
+                document.getElementById('endDateTime').value = window.formatDateTimeLocal(now);
+                document.getElementById('startDateTime').value = window.formatDateTimeLocal(oneDayAgo);
+                hideValidationMessage();
+            });
+        }
+    });
+})();
+
+// Chart setup
 function setupTrendToggle() {
     const toggleElement = document.getElementById('trendPeriodToggle');
     if (toggleElement) {
@@ -1795,6 +2095,7 @@ function updateTrendChart(period) {
     trendChart.update('active');
 }
 
+// Print styles
 const printStyles = document.createElement('style');
 printStyles.innerHTML = `
     @media print {
@@ -1812,6 +2113,7 @@ printStyles.innerHTML = `
 `;
 document.head.appendChild(printStyles);
 
+// Initialize everything
 console.log('About to initialize charts...');
 initializeCharts();
 setupTrendToggle();

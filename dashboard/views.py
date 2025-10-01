@@ -3,10 +3,14 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Avg
 from django.utils import timezone
 from datetime import timedelta, datetime
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.http import require_http_methods , require_POST
+from datetime import datetime
+from dateutil import parser
 import json
+
+from dashboard.services.pdf_service import PDFReportGenerator
+
 from incidents.models import (
     TransportNetworkIncident, FileAccessNetworkIncident, 
     RadioAccessNetworkIncident, CoreNetworkIncident, 
@@ -816,4 +820,108 @@ def refresh_chart_data(request):
         return JsonResponse({
             'success': False,
             'error': str(e)
+        }, status=500)
+    
+@login_required
+@require_POST
+def generate_pdf_report(request):
+    """
+    Generate PDF report for selected date range
+    """
+    try:
+        # Parse dates from POST data
+        start_date_str = request.POST.get('start_date')
+        end_date_str = request.POST.get('end_date')
+        
+        # Validate that dates are provided
+        if not start_date_str or not end_date_str:
+            return JsonResponse({
+                'success': False,
+                'error': 'Both start date and end date are required'
+            }, status=400)
+        
+        # Parse datetime strings to datetime objects
+        try:
+            # Handle datetime-local format: "YYYY-MM-DDTHH:MM"
+            start_date = parser.parse(start_date_str)
+            end_date = parser.parse(end_date_str)
+            
+            # Make timezone-aware if naive
+            if timezone.is_naive(start_date):
+                start_date = timezone.make_aware(start_date)
+            if timezone.is_naive(end_date):
+                end_date = timezone.make_aware(end_date)
+                
+        except (ValueError, parser.ParserError) as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Invalid date format: {str(e)}'
+            }, status=400)
+        
+        # Get current time as timezone-aware
+        now = timezone.now()
+        
+        # Validate date range
+        if start_date >= end_date:
+            return JsonResponse({
+                'success': False,
+                'error': 'Start date must be before end date'
+            }, status=400)
+        
+        # Check if end date is in the future
+        if end_date > now:
+            return JsonResponse({
+                'success': False,
+                'error': 'End date cannot be in the future'
+            }, status=400)
+        
+        # Check minimum range (1 hour)
+        time_diff = end_date - start_date
+        if time_diff.total_seconds() < 3600:  # 1 hour in seconds
+            return JsonResponse({
+                'success': False,
+                'error': 'Date range must be at least 1 hour'
+            }, status=400)
+        
+        # Check maximum range (1 year)
+        if time_diff.days > 365:
+            return JsonResponse({
+                'success': False,
+                'error': 'Date range cannot exceed 1 year'
+            }, status=400)
+        
+        # Initialize PDF generator
+        generator = PDFReportGenerator(
+            start_date=start_date,
+            end_date=end_date,
+            user=request.user
+        )
+        
+        # Generate PDF content
+        pdf_content = generator.generate_pdf()
+        
+        # Save PDF to server (optional - for record keeping)
+        file_path = generator.save_to_server(pdf_content)
+        
+        # Prepare filename for download
+        start_str = start_date.strftime('%Y-%m-%d')
+        end_str = end_date.strftime('%Y-%m-%d')
+        filename = f'incident_report_{start_str}_to_{end_str}.pdf'
+        
+        # Create HTTP response with PDF
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        return response
+        
+    except Exception as e:
+        # Log the error (in production, use proper logging)
+        import traceback
+        print(f"PDF Generation Error: {str(e)}")
+        print(traceback.format_exc())  # Print full traceback
+        
+        # Return JSON error response
+        return JsonResponse({
+            'success': False,
+            'error': f'PDF generation failed: {str(e)}'
         }, status=500)

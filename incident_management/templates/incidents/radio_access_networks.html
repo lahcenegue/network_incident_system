@@ -992,7 +992,9 @@
       </thead>
       <tbody>
         {% for incident in active_incidents %}
-        <tr class="{{ incident|severity_class }}">
+        <tr class="{{ incident|severity_class }} incident-row" 
+          data-incident-id="{{ incident.id }}" 
+          data-network-type="radio_access">
           <td>
             <div class="status-cell">
               <div class="status-indicator" style="background: 
@@ -1093,7 +1095,9 @@
       </thead>
       <tbody>
         {% for incident in resolved_recent %}
-        <tr class="incident-resolved">
+        <tr class="incident-resolved incident-row" 
+          data-incident-id="{{ incident.id }}" 
+          data-network-type="radio_access">
           <td>
             <div class="status-cell">
               <div class="status-indicator" style="background: #16a34a;"></div>
@@ -1138,106 +1142,201 @@
   {% endif %}
 </div>
 
+<!-- Include the incident detail modal -->
+{% include 'incidents/incident_detail_modal.html' %}
+
+{% endblock %}
+
+{% block page_js %}
 <script>
-function showIncidentDetails(incidentId) {
-  alert(`Viewing details for incident: ${incidentId}\n\nDetailed modal coming in next phase.`);
+// Function to load incident details into modal
+function loadIncidentDetail(networkType, incidentId) {
+    console.log('Loading incident:', incidentId, 'for network:', networkType);
+    
+    const modalElement = document.getElementById('incidentDetailModal');
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+    
+    document.getElementById('incidentDetailContent').innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-muted">Loading incident details...</p>
+        </div>
+    `;
+    
+    document.getElementById('editIncidentBtn').style.display = 'none';
+    
+    fetch(`/incidents/${networkType}/detail/${incidentId}/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            document.getElementById('incidentDetailContent').innerHTML = data.html;
+            const editBtn = document.getElementById('editIncidentBtn');
+            editBtn.style.display = 'inline-block';
+            editBtn.href = data.edit_url;
+            console.log('Incident details loaded successfully');
+        } else {
+            document.getElementById('incidentDetailContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    ${data.error || 'Failed to load incident details'}
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error loading incident details:', error);
+        document.getElementById('incidentDetailContent').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Failed to load incident details. Please try again.
+                <br><small class="text-muted">Error: ${error.message}</small>
+            </div>
+        `;
+    });
 }
 
 function toggleSearchHelp() {
-  const helpPanel = document.getElementById('searchHelp');
-  if (helpPanel.style.display === 'none') {
-    helpPanel.style.display = 'block';
-  } else {
-    helpPanel.style.display = 'none';
-  }
+    const helpPanel = document.getElementById('searchHelp');
+    helpPanel.style.display = helpPanel.style.display === 'none' ? 'block' : 'none';
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  // Handle search toggle arrow rotation
-  const searchHeader = document.querySelector('.search-header.clickable');
-  const searchContainer = document.getElementById('searchContainer');
-  
-  if (searchContainer && searchHeader) {
-    searchContainer.addEventListener('shown.bs.collapse', function() {
-      searchHeader.setAttribute('aria-expanded', 'true');
+    console.log('Setting up incident row click handlers');
+    
+    // Incident row clicks
+    const incidentRows = document.querySelectorAll('.incident-row');
+    console.log('Found', incidentRows.length, 'incident rows');
+    
+    incidentRows.forEach(row => {
+        row.style.cursor = 'pointer';
+        
+        row.addEventListener('click', function(e) {
+            if (e.target.closest('.action-btn') || e.target.closest('a')) {
+                return;
+            }
+            
+            const incidentId = this.getAttribute('data-incident-id');
+            const networkType = this.getAttribute('data-network-type');
+            
+            if (incidentId && networkType) {
+                console.log('Row clicked:', incidentId);
+                loadIncidentDetail(networkType, incidentId);
+            }
+        });
     });
     
-    searchContainer.addEventListener('hidden.bs.collapse', function() {
-      searchHeader.setAttribute('aria-expanded', 'false');
+    // View button clicks
+    const viewButtons = document.querySelectorAll('.action-btn[title="View"]');
+    viewButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const row = this.closest('.incident-row');
+            if (row) {
+                const incidentId = row.getAttribute('data-incident-id');
+                const networkType = row.getAttribute('data-network-type');
+                
+                if (incidentId && networkType) {
+                    loadIncidentDetail(networkType, incidentId);
+                }
+            }
+        });
     });
     
-    // Auto-expand if there are active filters
-    {% if search_active %}
-    const collapse = new bootstrap.Collapse(searchContainer, {show: true});
-    searchHeader.setAttribute('aria-expanded', 'true');
-    {% endif %}
-  }
-  
-  // Rest of your existing JavaScript
-  const form = document.getElementById('searchForm');
-  if (!form) return;
-  
-  const selects = form.querySelectorAll('select');
-  
-  selects.forEach(select => {
-    select.addEventListener('change', function() {
-      // Optional: Auto-submit on select changes
-      // form.submit();
-    });
-  });
-  
-  const searchInput = form.querySelector('input[name="search_query"]');
-  let searchTimeout;
-  
-  if (searchInput) {
-    searchInput.addEventListener('input', function() {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => {
-        // Optional: Auto-submit on text input (uncomment if desired)
-        // form.submit();
-      }, 500);
-    });
-  }
-});
-
-document.addEventListener('DOMContentLoaded', function() {
-  // Existing code stays here...
-  
-  // NEW: Keyboard navigation for pagination
-  document.addEventListener('keydown', function(e) {
-    // Only if no form elements are focused
-    if (document.activeElement.tagName.toLowerCase() === 'input' || 
-        document.activeElement.tagName.toLowerCase() === 'select') {
-      return;
+    // Search toggle
+    const searchHeader = document.querySelector('.search-header.clickable');
+    const searchContainer = document.getElementById('searchContainer');
+    
+    if (searchContainer && searchHeader) {
+        searchContainer.addEventListener('shown.bs.collapse', function() {
+            searchHeader.setAttribute('aria-expanded', 'true');
+        });
+        
+        searchContainer.addEventListener('hidden.bs.collapse', function() {
+            searchHeader.setAttribute('aria-expanded', 'false');
+        });
+        
+        // Auto-expand if search is active (based on URL parameters)
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasSearchParams = Array.from(urlParams.keys()).some(key => 
+            key !== 'page' && key !== 'size' && urlParams.get(key)
+        );
+        
+        if (hasSearchParams) {
+            const collapse = new bootstrap.Collapse(searchContainer, {show: true});
+            searchHeader.setAttribute('aria-expanded', 'true');
+        }
     }
     
-    // Left arrow or 'p' for previous page
-    if ((e.key === 'ArrowLeft' || e.key === 'p') && e.ctrlKey) {
-      const prevLink = document.querySelector('.page-item:has(.page-link[aria-label="Previous page"]) .page-link');
-      if (prevLink) {
-        e.preventDefault();
-        prevLink.click();
-      }
+    // Search form
+    const form = document.getElementById('searchForm');
+    if (form) {
+        const selects = form.querySelectorAll('select');
+        selects.forEach(select => {
+            select.addEventListener('change', function() {
+                // form.submit();
+            });
+        });
+        
+        const searchInput = form.querySelector('input[name="search_query"]');
+        let searchTimeout;
+        
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    // form.submit();
+                }, 500);
+            });
+        }
     }
     
-    // Right arrow or 'n' for next page
-    if ((e.key === 'ArrowRight' || e.key === 'n') && e.ctrlKey) {
-      const nextLink = document.querySelector('.page-item:has(.page-link[aria-label="Next page"]) .page-link');
-      if (nextLink) {
-        e.preventDefault();
-        nextLink.click();
-      }
+    // Keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        if (document.activeElement.tagName.toLowerCase() === 'input' || 
+            document.activeElement.tagName.toLowerCase() === 'select') {
+            return;
+        }
+        
+        if ((e.key === 'ArrowLeft' || e.key === 'p') && e.ctrlKey) {
+            const prevLink = document.querySelector('.page-item:has(.page-link[aria-label="Previous page"]) .page-link');
+            if (prevLink) {
+                e.preventDefault();
+                prevLink.click();
+            }
+        }
+        
+        if ((e.key === 'ArrowRight' || e.key === 'n') && e.ctrlKey) {
+            const nextLink = document.querySelector('.page-item:has(.page-link[aria-label="Next page"]) .page-link');
+            if (nextLink) {
+                e.preventDefault();
+                nextLink.click();
+            }
+        }
+    });
+    
+    // Preload next page
+    const nextPageLink = document.querySelector('.page-item:has(.page-link[aria-label="Next page"]) .page-link');
+    if (nextPageLink) {
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = nextPageLink.href;
+        document.head.appendChild(link);
     }
-  });
-  
-  // Preload next page for better performance
-  const nextPageLink = document.querySelector('.page-item:has(.page-link[aria-label="Next page"]) .page-link');
-  if (nextPageLink) {
-    const link = document.createElement('link');
-    link.rel = 'prefetch';
-    link.href = nextPageLink.href;
-    document.head.appendChild(link);
-  }
 });
 </script>
-{% endblock %}
+{% endblock page_js %}

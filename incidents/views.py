@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse
 from django.http import JsonResponse
+from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator, EmptyPage, InvalidPage
 from django.utils import timezone
@@ -83,7 +84,7 @@ def network_incidents_view(request, network_type):
         
         # Apply search filters
         filtered_queryset = base_queryset
-        search_active = False
+        search_active = bool(False)
         
         if search_form and search_form.is_valid():
             form_data = search_form.cleaned_data
@@ -499,3 +500,61 @@ def ajax_search_incidents(request, network_type):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+    
+
+@login_required
+def get_incident_detail(request, network_type, incident_id):
+    """
+    AJAX endpoint to fetch incident details for modal display.
+    Returns HTML content as JSON response.
+    """
+    try:
+        # Map network type to model
+        model_map = {
+            'transport': TransportNetworkIncident,
+            'file_access': FileAccessNetworkIncident,
+            'radio_access': RadioAccessNetworkIncident,
+            'core': CoreNetworkIncident,
+            'backbone_internet': BackboneInternetNetworkIncident,
+        }
+        
+        # Validate network type
+        if network_type not in model_map:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid network type'
+            }, status=400)
+        
+        # Get the incident
+        model = model_map[network_type]
+        incident = model.objects.select_related('created_by', 'updated_by').get(id=incident_id)
+        
+        # Prepare context data
+        context = {
+            'incident': incident,
+            'network_type': network_type,
+        }
+        
+        # CORRECTED PATH: Use incident_management/templates/incidents/detail_sections/
+        template_name = f'incidents/detail_sections/{network_type}_detail.html'
+        html_content = render_to_string(template_name, context, request=request)
+        
+        # Return success response with HTML
+        return JsonResponse({
+            'success': True,
+            'html': html_content,
+            'edit_url': f'/incidents/{network_type}-networks/edit/{incident_id}/',
+            'incident_id': str(incident_id),
+        })
+        
+    except model.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Incident not found'
+        }, status=404)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

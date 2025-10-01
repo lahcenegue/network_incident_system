@@ -147,6 +147,12 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Create media directory if it doesn't exist
+os.makedirs(MEDIA_ROOT / 'reports', exist_ok=True)
+
+# PDF Reports storage
+REPORTS_DIR = MEDIA_ROOT / 'reports'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Network Incident Report</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.5cm;
+            @top-center {
+                content: "Incident Report - " string(report-date);
+            }
+            @bottom-center {
+                content: "Page " counter(page) " / " counter(pages);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            color: #333;
+        }
+
+        /* Header Section */
+        .header {
+            border-bottom: 3px solid #003d7a;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .company-info {
+            flex: 1;
+        }
+
+        .company-logo {
+            width: 150px;
+            height: auto;
+        }
+
+        .company-name {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #003d7a;
+            margin-bottom: 3px;
+        }
+
+        .company-details {
+            font-size: 8pt;
+            color: #666;
+            line-height: 1.3;
+        }
+
+        .reference-line {
+            background: #f0f0f0;
+            padding: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #003d7a;
+            font-size: 9pt;
+        }
+
+        /* Report Title */
+        .report-title {
+            text-align: center;
+            font-size: 18pt;
+            font-weight: bold;
+            color: #003d7a;
+            text-transform: uppercase;
+            margin: 20px 0;
+            letter-spacing: 1px;
+        }
+
+        .report-subtitle {
+            text-align: center;
+            font-size: 11pt;
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        /* Executive Summary Box */
+        .summary-box {
+            background: #e7f3ff;
+            border: 2px solid #003d7a;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            page-break-inside: avoid;
+        }
+
+        .summary-box h3 {
+            color: #003d7a;
+            font-size: 12pt;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #003d7a;
+            padding-bottom: 5px;
+        }
+
+        .summary-stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+        }
+
+        .stat-value {
+            font-size: 24pt;
+            font-weight: bold;
+            color: #003d7a;
+        }
+
+        .stat-label {
+            font-size: 9pt;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        /* Incident Tables */
+        .incident-section {
+            margin: 25px 0;
+            page-break-inside: avoid;
+        }
+
+        .section-header {
+            background: #003d7a;
+            color: white;
+            padding: 8px 12px;
+            font-size: 11pt;
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        .incident-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+
+        .incident-table th {
+            background: #003d7a;
+            color: white;
+            padding: 8px;
+            text-align: left;
+            font-size: 9pt;
+            font-weight: 600;
+            border: 1px solid #002d5a;
+        }
+
+        .incident-table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+            font-size: 9pt;
+            vertical-align: top;
+        }
+
+        .incident-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .field-label {
+            font-weight: bold;
+            color: #003d7a;
+            min-width: 180px;
+            display: inline-block;
+        }
+
+        /* Severity Indicators */
+        .severity-critical {
+            background: #dc3545 !important;
+            color: white;
+        }
+        .severity-medium {
+            background: #fd7e14 !important;
+            color: white;
+        }
+        .severity-low {
+            background: #ffc107 !important;
+        }
+        .severity-resolved {
+            background: #198754 !important;
+            color: white;
+        }
+
+        /* Charts Section */
+        .charts-section {
+            margin: 25px 0;
+        }
+
+        .chart-container {
+            margin: 20px 0;
+            page-break-inside: avoid;
+        }
+
+        .chart-title {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #003d7a;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #003d7a;
+            padding-bottom: 5px;
+        }
+
+        /* Statistics Table */
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .stats-table th {
+            background: #003d7a;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .stats-table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+
+        .stats-table .bar-cell {
+            width: 40%;
+        }
+
+        .progress-bar {
+            height: 20px;
+            background: #003d7a;
+            color: white;
+            text-align: center;
+            line-height: 20px;
+            font-size: 8pt;
+            font-weight: bold;
+            min-width: 30px;
+        }
+
+        /* Footer */
+        .report-footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 2px solid #003d7a;
+            text-align: center;
+            font-size: 8pt;
+            color: #666;
+        }
+
+        /* Page Break Control */
+        .page-break {
+            page-break-after: always;
+        }
+
+        .no-break {
+            page-break-inside: avoid;
+        }
+
+        /* Network Badges */
+        .network-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 8pt;
+            font-weight: bold;
+            color: white;
+        }
+
+        .network-transport { background: #0d6efd; }
+        .network-file-access { background: #20c997; }
+        .network-radio-access { background: #ffc107; color: #000; }
+        .network-core { background: #6f42c1; }
+        .network-backbone { background: #fd7e14; }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-top">
+            <div class="company-info">
+                <div class="company-name">TELECOMMUNICATIONS NETWORK</div>
+                <div class="company-details">
+                    Network Incident Management System<br>
+                    Network Operations Department<br>
+                    National Supervision Center
+                </div>
+            </div>
+            <img src="{{ logo_path }}" alt="Logo" class="company-logo">
+        </div>
+    </div>
+
+    <div class="reference-line">
+        <strong>Ref:</strong> REPORT-{{ start_date|date:"Ymd" }}-{{ end_date|date:"Ymd" }} | 
+        <strong>Generated on:</strong> {{ generated_date|date:"m/d/Y at H:i" }} | 
+        <strong>By:</strong> {{ generated_by }}
+    </div>
+
+    <!-- TITLE -->
+    <h1 class="report-title">Network Incident Report</h1>
+    <p class="report-subtitle">
+        Period: {{ start_date|date:"m/d/Y H:i" }} - {{ end_date|date:"m/d/Y H:i" }}
+    </p>
+
+    <!-- EXECUTIVE SUMMARY -->
+    <div class="summary-box no-break">
+        <h3>Executive Summary</h3>
+        <p style="margin: 10px 0;">
+            This report presents the analysis of incidents that occurred across all networks 
+            during the period from <strong>{{ start_date|date:"F d, Y" }}</strong> to 
+            <strong>{{ end_date|date:"F d, Y" }}</strong>. 
+            A total of <strong>{{ statistics.total_incidents }}</strong> incidents were 
+            recorded, of which <strong>{{ statistics.total_resolved }}</strong> resolved and 
+            <strong>{{ statistics.total_active }}</strong> still active.
+        </p>
+
+        <div class="summary-stats">
+            <div class="stat-item">
+                <div class="stat-value">{{ statistics.total_incidents }}</div>
+                <div class="stat-label">Total Incidents</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ statistics.total_active }}</div>
+                <div class="stat-label">Active</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ statistics.total_resolved }}</div>
+                <div class="stat-label">Resolved</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">
+                    {% if statistics.avg_resolution_time %}
+                        {{ statistics.avg_resolution_time }}h
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </div>
+                <div class="stat-label">Avg Resolution Time</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NETWORK COMPARISON -->
+    <div class="charts-section no-break">
+        <div class="chart-title">Distribution by Network Type</div>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Network Type</th>
+                    <th>Total</th>
+                    <th>Active</th>
+                    <th>Resolved</th>
+                    <th class="bar-cell">Percentage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in chart_data.network_comparison %}
+                <tr>
+                    <td><strong>{{ item.network }}</strong></td>
+                    <td>{{ item.total }}</td>
+                    <td>{{ item.active }}</td>
+                    <td>{{ item.resolved }}</td>
+                    <td class="bar-cell">
+                        <div class="progress-bar" style="width: {{ item.percentage }}%;">
+                            {{ item.percentage }}%
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- DETAILED INCIDENTS -->
+    <h2 class="section-header">INCIDENT DETAILS</h2>
+
+    {% for incident in recent_incidents %}
+    <div class="incident-section">
+        <table class="incident-table">
+            <thead>
+                <tr>
+                    <th colspan="2">
+                        INCIDENT #{{ forloop.counter }} - 
+                        <span class="network-badge">
+                            {{ incident.network }}
+                        </span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="field-label">Incident ID:</span></td>
+                    <td>{{ incident.id }}</td>
+                </tr>
+                <tr>
+                    <td><span class="field-label">Start Date/Time:</span></td>
+                    <td>{{ incident.date_time|date:"m/d/Y H:i:s" }}</td>
+                </tr>
+                <tr>
+                    <td><span class="field-label">Duration:</span></td>
+                    <td><strong>{{ incident.duration }}</strong></td>
+                </tr>
+                <tr class="severity-{{ incident.severity|lower }}">
+                    <td><span class="field-label">Severity:</span></td>
+                    <td><strong>{{ incident.severity|upper }}</strong></td>
+                </tr>
+                <tr>
+                    <td><span class="field-label">Status:</span></td>
+                    <td>
+                        {% if incident.status == 'Resolved' %}
+                            ✓ Resolved
+                        {% else %}
+                            ⚠ Active
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td><span class="field-label">Cause:</span></td>
+                    <td>{{ incident.cause }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+
+    <div class="page-break"></div>
+
+    <!-- ANALYSIS SECTION -->
+    <h2 class="section-header">STATISTICAL ANALYSIS</h2>
+
+    <!-- Top Causes -->
+    {% if chart_data.top_causes %}
+    <div class="chart-container">
+        <div class="chart-title">Top Incident Causes</div>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Cause</th>
+                    <th>Count</th>
+                    <th class="bar-cell">Visualization</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in chart_data.top_causes %}
+                <tr>
+                    <td>{{ item.cause }}</td>
+                    <td>{{ item.count }}</td>
+                    <td class="bar-cell">
+                        <div class="progress-bar" style="width: {{ item.count|add:20 }}px;">
+                            {{ item.count }}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Top Origins -->
+    {% if chart_data.top_origins %}
+    <div class="chart-container">
+        <div class="chart-title">Top Incident Origins</div>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Origin</th>
+                    <th>Count</th>
+                    <th class="bar-cell">Visualization</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in chart_data.top_origins %}
+                <tr>
+                    <td>{{ item.origin }}</td>
+                    <td>{{ item.count }}</td>
+                    <td class="bar-cell">
+                        <div class="progress-bar" style="width: {{ item.count|add:20 }}px;">
+                            {{ item.count }}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- FOOTER -->
+    <div class="report-footer">
+        <p><strong>Network Incident Management System</strong></p>
+        <p>Report automatically generated on {{ generated_date|date:"m/d/Y at H:i:s" }}</p>
+        <p style="margin-top: 5px;">
+            Confidential Document - {{ statistics.total_incidents }} incidents across 
+            {{ statistics.networks|length }} network types analyzed
+        </p>
+    </div>
+</body>
+</html>

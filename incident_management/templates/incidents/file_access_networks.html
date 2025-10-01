@@ -999,7 +999,9 @@
       </thead>
       <tbody>
         {% for incident in active_incidents %}
-        <tr class="{{ incident|severity_class }}">
+        <tr class="{{ incident|severity_class }} incident-row" 
+          data-incident-id="{{ incident.id }}" 
+          data-network-type="file_access">
           <td>
             <div class="status-cell">
               <div class="status-indicator" style="background: 
@@ -1049,8 +1051,7 @@
                  class="action-btn primary" title="Edit">
                 <i class="bi bi-pencil"></i>
               </a>
-              <button class="action-btn" onclick="showIncidentDetails('{{ incident.id }}')"
-                      title="View">
+              <button class="action-btn" title="View">
                 <i class="bi bi-eye"></i>
               </button>
             </div>
@@ -1142,10 +1143,133 @@
   {% endif %}
 </div>
 
+<!-- Include the incident detail modal -->
+{% include 'incidents/incident_detail_modal.html' %}
+
+{% endblock %}
+
+{% block page_js %}
 <script>
-function showIncidentDetails(incidentId) {
-  alert(`Viewing details for incident: ${incidentId}\n\nDetailed modal coming in next phase.`);
+// Function to load incident details into modal
+function loadIncidentDetail(networkType, incidentId) {
+    console.log('Loading incident:', incidentId, 'for network:', networkType);
+    
+    // Get modal element
+    const modalElement = document.getElementById('incidentDetailModal');
+    const modal = new bootstrap.Modal(modalElement);
+    
+    // Show the modal with loading state
+    modal.show();
+    
+    // Show loading spinner
+    document.getElementById('incidentDetailContent').innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-muted">Loading incident details...</p>
+        </div>
+    `;
+    
+    // Hide edit button initially
+    document.getElementById('editIncidentBtn').style.display = 'none';
+    
+    // Fetch incident details via AJAX
+    fetch(`/incidents/${networkType}/detail/${incidentId}/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Load the HTML content
+            document.getElementById('incidentDetailContent').innerHTML = data.html;
+            
+            // Show and setup Edit button
+            const editBtn = document.getElementById('editIncidentBtn');
+            editBtn.style.display = 'inline-block';
+            editBtn.href = data.edit_url;
+            
+            console.log('Incident details loaded successfully');
+        } else {
+            // Show error message
+            document.getElementById('incidentDetailContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    ${data.error || 'Failed to load incident details'}
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error loading incident details:', error);
+        document.getElementById('incidentDetailContent').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Failed to load incident details. Please try again.
+                <br><small class="text-muted">Error: ${error.message}</small>
+            </div>
+        `;
+    });
 }
+
+// Add click listeners to incident rows when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Setting up incident row click handlers');
+    
+    // Find all incident rows
+    const incidentRows = document.querySelectorAll('.incident-row');
+    console.log('Found', incidentRows.length, 'incident rows');
+    
+    incidentRows.forEach(row => {
+        // Make rows visually clickable
+        row.style.cursor = 'pointer';
+        
+        // Add click event
+        row.addEventListener('click', function(e) {
+            // Don't trigger if clicking on action buttons or links
+            if (e.target.closest('.action-btn') || e.target.closest('a')) {
+                return;
+            }
+            
+            const incidentId = this.getAttribute('data-incident-id');
+            const networkType = this.getAttribute('data-network-type');
+            
+            if (incidentId && networkType) {
+                console.log('Row clicked:', incidentId);
+                loadIncidentDetail(networkType, incidentId);
+            } else {
+                console.error('Missing incident ID or network type on row');
+            }
+        });
+    });
+    
+    // Also update the View button (eye icon) functionality
+    const viewButtons = document.querySelectorAll('.action-btn[title="View"]');
+    viewButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const row = this.closest('.incident-row');
+            if (row) {
+                const incidentId = row.getAttribute('data-incident-id');
+                const networkType = row.getAttribute('data-network-type');
+                
+                if (incidentId && networkType) {
+                    loadIncidentDetail(networkType, incidentId);
+                }
+            }
+        });
+    });
+});
 
 function toggleSearchHelp() {
   const helpPanel = document.getElementById('searchHelp');
@@ -1171,10 +1295,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Auto-expand if there are active filters
-    {% if search_active %}
-    const collapse = new bootstrap.Collapse(searchContainer, {show: true});
-    searchHeader.setAttribute('aria-expanded', 'true');
-    {% endif %}
+    const searchActive = {{ search_active|yesno:"true,false" }};
+    if (searchActive) {
+      const collapse = new bootstrap.Collapse(searchContainer, {show: true});
+      searchHeader.setAttribute('aria-expanded', 'true');
+    }
   }
   
   // Rest of your existing JavaScript
@@ -1244,4 +1369,4 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
-{% endblock %}
+{% endblock page_js %}

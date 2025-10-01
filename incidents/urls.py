@@ -42,4 +42,7 @@ urlpatterns = [
     # AJAX endpoints for validation
     path('validate-field/<str:network_type>/', views.validate_incident_field, name='validate_field'),
     path('ajax-search/<str:network_type>/', views.ajax_search_incidents, name='ajax_search'),
+
+    # Incident detail modal endpoint
+    path('<str:network_type>/detail/<uuid:incident_id>/', views.get_incident_detail, name='incident_detail'),
 ]
