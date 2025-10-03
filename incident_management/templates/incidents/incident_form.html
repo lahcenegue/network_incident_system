@@ -37,27 +37,6 @@
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-/* Enhanced datetime styling with calendar/clock icons */
-.datetime-container {
-    position: relative;
-}
-
-input[type="datetime-local"] {
-    color-scheme: light;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    padding-right: 50px;
-}
-
-.datetime-container::before {
-    content: "📅";
-    position: absolute;
-    right: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    pointer-events: none;
-    z-index: 1;
-}
-
 .btn-submit {
     background: linear-gradient(45deg, #007bff, #0056b3);
     border: none;
@@ -93,10 +72,10 @@ input[type="datetime-local"] {
         <div class="col-12">
             <div class="alert alert-info">
                 <h4 class="mb-2">
-                    <i class="bi bi-plus-circle-fill me-2"></i>
+                    <i class="bi bi-{% if action == 'Edit' %}pencil{% else %}plus-circle-fill{% endif %} me-2"></i>
                     {{ action }} Incident - {{ network_type }}
                 </h4>
-                <p class="mb-0">Complete all required fields marked with <span class="required-field">*</span> to create the incident record.</p>
+                <p class="mb-0">Complete all required fields marked with <span class="required-field">*</span>.</p>
             </div>
         </div>
     </div>
@@ -105,7 +84,7 @@ input[type="datetime-local"] {
     <form method="post" id="incidentForm">
         {% csrf_token %}
         
-        <!-- Network-Specific Section (First) -->
+        <!-- Network-Specific Section -->
         {% if 'Transport' in network_type %}
             <!-- Transport Networks Form -->
             <div class="form-section">
@@ -118,7 +97,10 @@ input[type="datetime-local"] {
                         <select name="region_loop" class="form-select" required>
                             <option value="">--- Select Region/Loop ---</option>
                             {% for config in region_choices %}
-                                <option value="{{ config.value }}" {% if form_data.region_loop == config.value %}selected{% endif %}>{{ config.value }}</option>
+                                <option value="{{ config.value }}" 
+                                    {% if incident.region_loop == config.value %}selected{% endif %}>
+                                    {{ config.value }}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -129,7 +111,10 @@ input[type="datetime-local"] {
                         <select name="system_capacity" class="form-select" required>
                             <option value="">--- Select System/Capacity ---</option>
                             {% for config in system_choices %}
-                                <option value="{{ config.value }}" {% if form_data.system_capacity == config.value %}selected{% endif %}>{{ config.value }}</option>
+                                <option value="{{ config.value }}"
+                                    {% if incident.system_capacity == config.value %}selected{% endif %}>
+                                    {{ config.value }}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -147,7 +132,10 @@ input[type="datetime-local"] {
                                     <select name="dot_extremity_a" class="form-select">
                                         <option value="">--- Select DOT State ---</option>
                                         {% for config in dot_choices %}
-                                            <option value="{{ config.value }}">{{ config.value }}</option>
+                                            <option value="{{ config.value }}"
+                                                {% if incident.dot_extremity_a == config.value %}selected{% endif %}>
+                                                {{ config.value }}
+                                            </option>
                                         {% endfor %}
                                     </select>
                                 </div>
@@ -157,7 +145,7 @@ input[type="datetime-local"] {
                                     </label>
                                     <input type="text" name="extremity_a" class="form-control" 
                                         placeholder="Enter extremity A location" required
-                                        value="{{ form_data.extremity_a|default:'' }}">
+                                        value="{{ incident.extremity_a|default:'' }}">
                                 </div>
                             </div>
                         </div>
@@ -175,7 +163,10 @@ input[type="datetime-local"] {
                                     <select name="dot_extremity_b" class="form-select" required>
                                         <option value="">--- Select DOT State ---</option>
                                         {% for config in dot_choices %}
-                                            <option value="{{ config.value }}">{{ config.value }}</option>
+                                            <option value="{{ config.value }}"
+                                                {% if incident.dot_extremity_b == config.value %}selected{% endif %}>
+                                                {{ config.value }}
+                                            </option>
                                         {% endfor %}
                                     </select>
                                 </div>
@@ -185,7 +176,7 @@ input[type="datetime-local"] {
                                     </label>
                                     <input type="text" name="extremity_b" class="form-control" 
                                         placeholder="Enter extremity B location" required
-                                        value="{{ form_data.extremity_b|default:'' }}">
+                                        value="{{ incident.extremity_b|default:'' }}">
                                 </div>
                             </div>
                         </div>
@@ -197,9 +188,9 @@ input[type="datetime-local"] {
                         <label class="form-label fw-bold">Responsibility</label>
                         <select name="responsibility" class="form-select">
                             <option value="">--- Select Responsibility ---</option>
-                            <option value="A" {% if form_data.responsibility == 'A' %}selected{% endif %}>A</option>
-                            <option value="B" {% if form_data.responsibility == 'B' %}selected{% endif %}>B</option>
-                            <option value="Both" {% if form_data.responsibility == 'Both' %}selected{% endif %}>Both</option>
+                            <option value="A" {% if incident.responsibility == 'A' %}selected{% endif %}>A</option>
+                            <option value="B" {% if incident.responsibility == 'B' %}selected{% endif %}>B</option>
+                            <option value="Both" {% if incident.responsibility == 'Both' %}selected{% endif %}>Both</option>
                         </select>
                         <small class="text-muted">Select responsibility assignment (optional)</small>
                     </div>
@@ -217,7 +208,10 @@ input[type="datetime-local"] {
                         <select name="do_wilaya" class="form-select" required>
                             <option value="">--- Select Wilaya ---</option>
                             {% for config in wilaya_choices %}
-                                <option value="{{ config.value }}">{{ config.value }}</option>
+                                <option value="{{ config.value }}"
+                                    {% if incident.do_wilaya == config.value %}selected{% endif %}>
+                                    {{ config.value }}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -226,14 +220,16 @@ input[type="datetime-local"] {
                             Zone / Metro <span class="required-field">*</span>
                         </label>
                         <input type="text" name="zone_metro" class="form-control" 
-                               placeholder="Enter zone/metro area" required>
+                               placeholder="Enter zone/metro area" required
+                               value="{{ incident.zone_metro|default:'' }}">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-bold">
                             Site <span class="required-field">*</span>
                         </label>
                         <input type="text" name="site" class="form-control" 
-                               placeholder="Enter site identification" required>
+                               placeholder="Enter site identification" required
+                               value="{{ incident.site|default:'' }}">
                     </div>
                 </div>
                 <div class="row mt-3">
@@ -242,7 +238,8 @@ input[type="datetime-local"] {
                             IP Address <span class="required-field">*</span>
                         </label>
                         <input type="text" name="ip_address" class="form-control" 
-                               placeholder="Enter IP address (e.g., 192.168.1.1)" required>
+                               placeholder="Enter IP address (e.g., 192.168.1.1)" required
+                               value="{{ incident.ip_address|default:'' }}">
                         <small class="text-muted">IPv4 or IPv6 address format</small>
                     </div>
                 </div>
@@ -259,7 +256,10 @@ input[type="datetime-local"] {
                         <select name="do_wilaya" class="form-select" required>
                             <option value="">--- Select Wilaya ---</option>
                             {% for config in wilaya_choices %}
-                                <option value="{{ config.value }}">{{ config.value }}</option>
+                                <option value="{{ config.value }}"
+                                    {% if incident.do_wilaya == config.value %}selected{% endif %}>
+                                    {{ config.value }}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -268,14 +268,16 @@ input[type="datetime-local"] {
                             Site <span class="required-field">*</span>
                         </label>
                         <input type="text" name="site" class="form-control" 
-                               placeholder="Enter site identification" required>
+                               placeholder="Enter site identification" required
+                               value="{{ incident.site|default:'' }}">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-bold">
                             IP Address <span class="required-field">*</span>
                         </label>
                         <input type="text" name="ip_address" class="form-control" 
-                               placeholder="Enter IP address (e.g., 192.168.1.1)" required>
+                               placeholder="Enter IP address (e.g., 192.168.1.1)" required
+                               value="{{ incident.ip_address|default:'' }}">
                         <small class="text-muted">IPv4 or IPv6 address format</small>
                     </div>
                 </div>
@@ -292,7 +294,10 @@ input[type="datetime-local"] {
                         <select name="platform" class="form-select" required>
                             <option value="">--- Select Platform ---</option>
                             {% for config in platform_choices %}
-                                <option value="{{ config.value }}">{{ config.value }}</option>
+                                <option value="{{ config.value }}"
+                                    {% if incident.platform == config.value %}selected{% endif %}>
+                                    {{ config.value }}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -303,18 +308,22 @@ input[type="datetime-local"] {
                         <select name="region_node" class="form-select" required>
                             <option value="">--- Select Region/Node ---</option>
                             {% for config in region_node_choices %}
-                                <option value="{{ config.value }}">{{ config.value }}</option>
+                                <option value="{{ config.value }}"
+                                    {% if incident.region_node == config.value %}selected{% endif %}>
+                                    {{ config.value }}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-bold">Site</label>
                         <input type="text" name="site" class="form-control" 
-                               placeholder="Enter site (optional)">
+                               placeholder="Enter site (optional)"
+                               value="{{ incident.site|default:'' }}">
                     </div>
                 </div>
                 
-                <!-- Optional Extremity Information for Core -->
+                <!-- Optional Extremity Information -->
                 <div class="row mt-3">
                     <div class="col-12">
                         <h6 class="text-muted">Extremity Information (Optional)</h6>
@@ -330,14 +339,18 @@ input[type="datetime-local"] {
                                     <select name="dot_extremity_a" class="form-select">
                                         <option value="">--- Select DOT State ---</option>
                                         {% for config in dot_choices %}
-                                            <option value="{{ config.value }}">{{ config.value }}</option>
+                                            <option value="{{ config.value }}"
+                                                {% if incident.dot_extremity_a == config.value %}selected{% endif %}>
+                                                {{ config.value }}
+                                            </option>
                                         {% endfor %}
                                     </select>
                                 </div>
                                 <div>
                                     <label class="form-label">Extremity(A)</label>
                                     <input type="text" name="extremity_a" class="form-control" 
-                                           placeholder="Enter extremity A location">
+                                           placeholder="Enter extremity A location"
+                                           value="{{ incident.extremity_a|default:'' }}">
                                 </div>
                             </div>
                         </div>
@@ -353,14 +366,18 @@ input[type="datetime-local"] {
                                     <select name="dot_extremity_b" class="form-select">
                                         <option value="">--- Select DOT State ---</option>
                                         {% for config in dot_choices %}
-                                            <option value="{{ config.value }}">{{ config.value }}</option>
+                                            <option value="{{ config.value }}"
+                                                {% if incident.dot_extremity_b == config.value %}selected{% endif %}>
+                                                {{ config.value }}
+                                            </option>
                                         {% endfor %}
                                     </select>
                                 </div>
                                 <div>
                                     <label class="form-label">Extremity(B)</label>
                                     <input type="text" name="extremity_b" class="form-control" 
-                                           placeholder="Enter extremity B location">
+                                           placeholder="Enter extremity B location"
+                                           value="{{ incident.extremity_b|default:'' }}">
                                 </div>
                             </div>
                         </div>
@@ -379,7 +396,10 @@ input[type="datetime-local"] {
                         <select name="interconnect_type" class="form-select" required>
                             <option value="">--- Select Interconnect Type ---</option>
                             {% for config in interconnect_choices %}
-                                <option value="{{ config.value }}">{{ config.value }}</option>
+                                <option value="{{ config.value }}"
+                                    {% if incident.interconnect_type == config.value %}selected{% endif %}>
+                                    {{ config.value }}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -390,7 +410,10 @@ input[type="datetime-local"] {
                         <select name="platform_igw" class="form-select" required>
                             <option value="">--- Select Platform/IGW ---</option>
                             {% for config in platform_igw_choices %}
-                                <option value="{{ config.value }}">{{ config.value }}</option>
+                                <option value="{{ config.value }}"
+                                    {% if incident.platform_igw == config.value %}selected{% endif %}>
+                                    {{ config.value }}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -399,13 +422,14 @@ input[type="datetime-local"] {
                             Link Label <span class="required-field">*</span>
                         </label>
                         <input type="text" name="link_label" class="form-control" 
-                               placeholder="Enter link label" required>
+                               placeholder="Enter link label" required
+                               value="{{ incident.link_label|default:'' }}">
                     </div>
                 </div>
             </div>
         {% endif %}
 
-        <!-- Timing Section (After Network Details) -->
+        <!-- Timing Section -->
         <div class="form-section">
             <h5><i class="bi bi-clock me-2"></i>Incident Timing</h5>
             <div class="row">
@@ -413,29 +437,25 @@ input[type="datetime-local"] {
                     <label class="form-label fw-bold">
                         Date and Time of Incident <span class="required-field">*</span>
                     </label>
-                    <div class="datetime-container">
-                        <input type="datetime-local" 
-                               name="date_time_incident" 
-                               class="form-control" 
-                               required 
-                               step="60"
-                               value="{{ form.date_time_incident.value|default:'' }}">
-                    </div>
+                    <input type="datetime-local" 
+                           name="date_time_incident" 
+                           id="incidentDateTime"
+                           class="form-control" 
+                           required 
+                           step="60"
+                           value="{{ form.date_time_incident.value|default:'' }}">
                     <small class="text-muted">When did the incident occur?</small>
                 </div>
-                {% if action == 'Edit' %}
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Date and Time of Recovery</label>
-                    <div class="datetime-container">
-                        <input type="datetime-local" 
-                               name="date_time_recovery" 
-                               class="form-control" 
-                               step="60"
-                               value="{{ form.date_time_recovery.value|default:'' }}">
-                    </div>
+                    <input type="datetime-local" 
+                           name="date_time_recovery" 
+                           id="recoveryDateTime"
+                           class="form-control" 
+                           step="60"
+                           value="{{ form.date_time_recovery.value|default:'' }}">
                     <small class="text-muted">Leave empty if incident is still active</small>
                 </div>
-                {% endif %}
             </div>
         </div>
 
@@ -448,7 +468,10 @@ input[type="datetime-local"] {
                     <select name="cause" class="form-select">
                         <option value="">--- Select Cause ---</option>
                         {% for config in cause_choices %}
-                            <option value="{{ config.value }}">{{ config.value }}</option>
+                            <option value="{{ config.value }}"
+                                {% if incident.cause == config.value %}selected{% endif %}>
+                                {{ config.value }}
+                            </option>
                         {% endfor %}
                     </select>
                     <small class="text-muted">Root cause of the incident (optional)</small>
@@ -458,7 +481,10 @@ input[type="datetime-local"] {
                     <select name="origin" class="form-select">
                         <option value="">--- Select Origin ---</option>
                         {% for config in origin_choices %}
-                            <option value="{{ config.value }}">{{ config.value }}</option>
+                            <option value="{{ config.value }}"
+                                {% if incident.origin == config.value %}selected{% endif %}>
+                                {{ config.value }}
+                            </option>
                         {% endfor %}
                     </select>
                     <small class="text-muted">Source/origin of the incident (optional)</small>
@@ -468,7 +494,7 @@ input[type="datetime-local"] {
                 <div class="col-12">
                     <label class="form-label fw-bold">Impact / Comment</label>
                     <textarea name="impact_comment" class="form-control" rows="4" 
-                              placeholder="Describe the impact and any additional comments..."></textarea>
+                              placeholder="Describe the impact and any additional comments...">{{ incident.impact_comment|default:'' }}</textarea>
                     <small class="text-muted">Detailed description of the incident impact</small>
                 </div>
             </div>
@@ -477,12 +503,12 @@ input[type="datetime-local"] {
         <!-- Submit Section -->
         <div class="row">
             <div class="col-12 text-end">
-                <a href="{% url 'incidents:transport_incidents' %}" class="btn btn-outline-secondary me-3">
+                <a href="javascript:history.back()" class="btn btn-outline-secondary me-3">
                     <i class="bi bi-x-lg me-2"></i>Cancel
                 </a>
                 <button type="submit" class="btn btn-primary btn-submit">
                     <i class="bi bi-check-lg me-2"></i>
-                    {% if action == 'Add New' %}Create Incident{% else %}Update Incident{% endif %}
+                    {% if action == 'Edit' %}Update Incident{% else %}Create Incident{% endif %}
                 </button>
             </div>
         </div>
@@ -491,238 +517,15 @@ input[type="datetime-local"] {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Set current time for new incidents
+    // Set current time for new incidents only
     {% if action == 'Add New' %}
-        const now = new Date();
-        const localDateTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
-        const incidentTimeInput = document.querySelector('input[name="date_time_incident"]');
+        const incidentTimeInput = document.getElementById('incidentDateTime');
         if (incidentTimeInput && !incidentTimeInput.value) {
+            const now = new Date();
+            const localDateTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
             incidentTimeInput.value = localDateTime.toISOString().slice(0, 16);
         }
     {% endif %}
-    
-    function createProfessionalTimeInput() {
-        const container = document.createElement('div');
-        container.className = 'datetime-input-container';
-        
-        const displayContainer = document.createElement('div');
-        displayContainer.className = 'time-display-container';
-        
-        // Hours display
-        const hoursDisplay = document.createElement('div');
-        hoursDisplay.className = 'time-number-display selected';
-        hoursDisplay.textContent = '00';
-        hoursDisplay.dataset.field = 'hours';
-        
-        // Separator
-        const separator = document.createElement('span');
-        separator.className = 'time-separator';
-        separator.textContent = ':';
-        
-        // Minutes display
-        const minutesDisplay = document.createElement('div');
-        minutesDisplay.className = 'time-number-display';
-        minutesDisplay.textContent = '00';
-        minutesDisplay.dataset.field = 'minutes';
-        
-        // Controls
-        const controls = document.createElement('div');
-        controls.className = 'time-controls';
-        
-        const upBtn = document.createElement('div');
-        upBtn.className = 'time-control-btn up';
-        
-        const downBtn = document.createElement('div');
-        downBtn.className = 'time-control-btn down';
-        
-        controls.appendChild(upBtn);
-        controls.appendChild(downBtn);
-        
-        // Manual input overlay
-        const inputOverlay = document.createElement('div');
-        inputOverlay.className = 'time-input-overlay';
-        
-        const manualInput = document.createElement('input');
-        manualInput.className = 'time-manual-input';
-        manualInput.placeholder = 'HH:MM';
-        manualInput.maxLength = 5;
-        
-        inputOverlay.appendChild(manualInput);
-        
-        displayContainer.appendChild(hoursDisplay);
-        displayContainer.appendChild(separator);
-        displayContainer.appendChild(minutesDisplay);
-        
-        container.appendChild(displayContainer);
-        container.appendChild(controls);
-        container.appendChild(inputOverlay);
-        
-        let selectedField = 'hours';
-        let hours = 0;
-        let minutes = 0;
-        
-        // Field selection
-        function selectField(field) {
-            selectedField = field;
-            hoursDisplay.classList.toggle('selected', field === 'hours');
-            minutesDisplay.classList.toggle('selected', field === 'minutes');
-        }
-        
-        hoursDisplay.addEventListener('click', () => selectField('hours'));
-        minutesDisplay.addEventListener('click', () => selectField('minutes'));
-        
-        // Spinner controls
-        upBtn.addEventListener('click', () => {
-            if (selectedField === 'hours') {
-                hours = (hours + 1) % 24;
-                hoursDisplay.textContent = hours.toString().padStart(2, '0');
-            } else {
-                minutes = (minutes + 1) % 60;
-                minutesDisplay.textContent = minutes.toString().padStart(2, '0');
-            }
-        });
-        
-        downBtn.addEventListener('click', () => {
-            if (selectedField === 'hours') {
-                hours = hours === 0 ? 23 : hours - 1;
-                hoursDisplay.textContent = hours.toString().padStart(2, '0');
-            } else {
-                minutes = minutes === 0 ? 59 : minutes - 1;
-                minutesDisplay.textContent = minutes.toString().padStart(2, '0');
-            }
-        });
-        
-        // Manual input mode
-        container.addEventListener('dblclick', () => {
-            inputOverlay.classList.add('active');
-            manualInput.value = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-            manualInput.focus();
-            manualInput.select();
-        });
-        
-        manualInput.addEventListener('blur', () => {
-            const value = manualInput.value;
-            const timeRegex = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
-            
-            if (timeRegex.test(value)) {
-                const [h, m] = value.split(':');
-                hours = parseInt(h);
-                minutes = parseInt(m);
-                hoursDisplay.textContent = hours.toString().padStart(2, '0');
-                minutesDisplay.textContent = minutes.toString().padStart(2, '0');
-            }
-            
-            inputOverlay.classList.remove('active');
-        });
-        
-        manualInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === 'Escape') {
-                manualInput.blur();
-            }
-        });
-        
-        // Keyboard support
-        container.addEventListener('keydown', (e) => {
-            if (inputOverlay.classList.contains('active')) return;
-            
-            switch(e.key) {
-                case 'ArrowUp':
-                    e.preventDefault();
-                    upBtn.click();
-                    break;
-                case 'ArrowDown':
-                    e.preventDefault();
-                    downBtn.click();
-                    break;
-                case 'ArrowLeft':
-                    e.preventDefault();
-                    selectField('hours');
-                    break;
-                case 'ArrowRight':
-                    e.preventDefault();
-                    selectField('minutes');
-                    break;
-                case 'Enter':
-                    e.preventDefault();
-                    container.dispatchEvent(new Event('dblclick'));
-                    break;
-            }
-        });
-        
-        container.tabIndex = 0;
-        
-        return {
-            container,
-            getValue: () => `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
-            setValue: (timeString) => {
-                if (timeString) {
-                    const [h, m] = timeString.split(':');
-                    hours = parseInt(h) || 0;
-                    minutes = parseInt(m) || 0;
-                    hoursDisplay.textContent = hours.toString().padStart(2, '0');
-                    minutesDisplay.textContent = minutes.toString().padStart(2, '0');
-                }
-            }
-        };
-    }
-    
-    function createUnifiedDateTimeInput(originalInput) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'custom-datetime-wrapper';
-        
-        // Date container
-        const dateContainer = document.createElement('div');
-        dateContainer.className = 'datetime-input-container';
-        
-        const dateInput = document.createElement('input');
-        dateInput.type = 'date';
-        dateInput.className = 'date-input';
-        
-        dateContainer.appendChild(dateInput);
-        
-        // Time input
-        const timeInput = createProfessionalTimeInput();
-        
-        wrapper.appendChild(dateContainer);
-        wrapper.appendChild(timeInput.container);
-        
-        function syncValues() {
-            if (dateInput.value && timeInput.getValue()) {
-                originalInput.value = `${dateInput.value}T${timeInput.getValue()}`;
-                originalInput.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }
-        
-        // Initialize
-        if (originalInput.value) {
-            const [date, time] = originalInput.value.split('T');
-            if (date) dateInput.value = date;
-            if (time) timeInput.setValue(time);
-        }
-        
-        // Set current time for incident field
-        if (!originalInput.value && originalInput.name === 'date_time_incident') {
-            const now = new Date();
-            dateInput.value = now.toISOString().split('T')[0];
-            timeInput.setValue(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`);
-            syncValues();
-        }
-        
-        dateInput.addEventListener('change', syncValues);
-        timeInput.container.addEventListener('click', syncValues);
-        
-        originalInput.style.display = 'none';
-        originalInput.parentNode.insertBefore(wrapper, originalInput);
-        
-        if (originalInput.hasAttribute('required')) {
-            dateInput.setAttribute('required', '');
-        }
-        
-        return wrapper;
-    }
-    
-    // Apply to all datetime inputs
-    document.querySelectorAll('input[type="datetime-local"]').forEach(createUnifiedDateTimeInput);
 });
 </script>
 {% endblock %}

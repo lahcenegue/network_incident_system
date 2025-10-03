@@ -24,6 +24,21 @@ from .forms import (
 from .utils import get_incident_color_class
 import json
 
+def format_datetime_for_input(dt):
+    """
+    Format datetime object for HTML5 datetime-local input.
+    Required format: YYYY-MM-DDTHH:MM
+    """
+    if not dt:
+        return None
+    
+    # Convert to local timezone if aware
+    if timezone.is_aware(dt):
+        dt = timezone.localtime(dt)
+    
+    # Format as HTML5 datetime-local expects: YYYY-MM-DDTHH:MM
+    return dt.strftime('%Y-%m-%dT%H:%M')
+
 # Fixed Network configuration - corrected backbone_internet naming
 NETWORKS = {
     'transport': {
@@ -185,7 +200,6 @@ def get_essential_fields_for_network(network_type):
 @require_http_methods(["GET", "POST"])
 def add_incident_view(request, network_type):
     """Enhanced view to add new incidents with form data preservation"""
-    print(f"DEBUG: Network type received: '{network_type}'")
     
     # Validate network type first
     if network_type not in NETWORKS:
@@ -311,6 +325,56 @@ def edit_incident_view(request, network_type, incident_id):
     
     try:
         incident = get_object_or_404(model, id=incident_id)
+
+        from .models import DropdownConfiguration
+        
+        dropdown_context = {
+            'cause_choices': list(DropdownConfiguration.objects.filter(
+                category='cause', is_active=True
+            ).order_by('sort_order', 'value')),
+            'origin_choices': list(DropdownConfiguration.objects.filter(
+                category='origin', is_active=True
+            ).order_by('sort_order', 'value')),
+        }
+        
+        # Add network-specific dropdown choices
+        if network_type == 'transport':
+            dropdown_context.update({
+                'region_choices': list(DropdownConfiguration.objects.filter(
+                    category='region_loop', is_active=True
+                ).order_by('sort_order', 'value')),
+                'system_choices': list(DropdownConfiguration.objects.filter(
+                    category='system_capacity', is_active=True
+                ).order_by('sort_order', 'value')),
+                'dot_choices': list(DropdownConfiguration.objects.filter(
+                    category='dot_states', is_active=True
+                ).order_by('sort_order', 'value')),
+            })
+        elif network_type in ['file_access', 'radio_access']:
+            dropdown_context['wilaya_choices'] = list(DropdownConfiguration.objects.filter(
+                category='wilayas', is_active=True
+            ).order_by('sort_order', 'value'))
+        elif network_type == 'core':
+            dropdown_context.update({
+                'platform_choices': list(DropdownConfiguration.objects.filter(
+                    category='platforms', is_active=True
+                ).order_by('sort_order', 'value')),
+                'region_node_choices': list(DropdownConfiguration.objects.filter(
+                    category='region_nodes', is_active=True
+                ).order_by('sort_order', 'value')),
+                'dot_choices': list(DropdownConfiguration.objects.filter(
+                    category='dot_states', is_active=True
+                ).order_by('sort_order', 'value')),
+            })
+        elif network_type == 'backbone_internet':
+            dropdown_context.update({
+                'interconnect_choices': list(DropdownConfiguration.objects.filter(
+                    category='interconnect_types', is_active=True
+                ).order_by('sort_order', 'value')),
+                'platform_igw_choices': list(DropdownConfiguration.objects.filter(
+                    category='platform_igws', is_active=True
+                ).order_by('sort_order', 'value')),
+            })
         
         # Check if user can edit this incident
         if not request.user.is_admin() and incident.created_by != request.user:
@@ -324,6 +388,7 @@ def edit_incident_view(request, network_type, incident_id):
             if form.is_valid():
                 updated_incident = form.save(commit=False)
                 updated_incident.updated_by = request.user
+                updated_incident.updated_at = timezone.now()
                 updated_incident.save()
                 
                 messages.success(
@@ -342,7 +407,65 @@ def edit_incident_view(request, network_type, incident_id):
                             field_label = form.fields.get(field, {}).label or field.replace('_', ' ').title()
                             messages.error(request, f"{field_label}: {error}")
         else:
-            form = form_class(instance=incident, user=request.user)
+            # GET request - Prepare initial data with properly formatted datetime
+            initial_data = {}
+            
+            # CRITICAL FIX: Format datetime fields for HTML5 datetime-local input
+            initial_data['date_time_incident'] = format_datetime_for_input(incident.date_time_incident)
+            
+            if incident.date_time_recovery:
+                initial_data['date_time_recovery'] = format_datetime_for_input(incident.date_time_recovery)
+            
+            # Add all other fields based on network type
+            if network_type == 'transport':
+                initial_data.update({
+                    'region_loop': incident.region_loop,
+                    'system_capacity': incident.system_capacity,
+                    'dot_extremity_a': incident.dot_extremity_a,
+                    'extremity_a': incident.extremity_a,
+                    'dot_extremity_b': incident.dot_extremity_b,
+                    'extremity_b': incident.extremity_b,
+                    'responsibility': incident.responsibility,
+                })
+            elif network_type == 'file_access':
+                initial_data.update({
+                    'do_wilaya': incident.do_wilaya,
+                    'zone_metro': incident.zone_metro,
+                    'site': incident.site,
+                    'ip_address': incident.ip_address,
+                })
+            elif network_type == 'radio_access':
+                initial_data.update({
+                    'do_wilaya': incident.do_wilaya,
+                    'site': incident.site,
+                    'ip_address': incident.ip_address,
+                })
+            elif network_type == 'core':
+                initial_data.update({
+                    'platform': incident.platform,
+                    'region_node': incident.region_node,
+                    'site': incident.site,
+                    'dot_extremity_a': incident.dot_extremity_a,
+                    'extremity_a': incident.extremity_a,
+                    'dot_extremity_b': incident.dot_extremity_b,
+                    'extremity_b': incident.extremity_b,
+                })
+            elif network_type == 'backbone_internet':
+                initial_data.update({
+                    'interconnect_type': incident.interconnect_type,
+                    'platform_igw': incident.platform_igw,
+                    'link_label': incident.link_label,
+                })
+            
+            # Common fields for all networks
+            initial_data.update({
+                'cause': incident.cause,
+                'origin': incident.origin,
+                'impact_comment': incident.impact_comment,
+            })
+            
+            # Create form with initial data AND instance
+            form = form_class(initial=initial_data, instance=incident, user=request.user)
             form = update_form_common_fields(form, network_type)
         
         context = {
@@ -353,7 +476,8 @@ def edit_incident_view(request, network_type, incident_id):
             'submit_text': 'Update Incident',
             'cancel_url': reverse(f'incidents:{network_type}_incidents'),
             'is_edit': True,
-            'action': 'Edit'
+            'action': 'Edit',
+            **dropdown_context
         }
         
         return render(request, 'incidents/incident_form.html', context)
@@ -361,6 +485,7 @@ def edit_incident_view(request, network_type, incident_id):
     except Exception as e:
         messages.error(request, f"Error editing incident: {str(e)}")
         return redirect(f'incidents:{network_type}_incidents')
+    
 
 @login_required
 def incident_notification_prompt(request, network_type, incident_id):

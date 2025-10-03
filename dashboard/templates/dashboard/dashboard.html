@@ -850,1031 +850,668 @@
 {% endblock %}
 
 {% block page_js %}
-console.log('Dashboard page JS block executing...');
-
-if (typeof Chart === 'undefined') {
-    console.error('Chart.js is not loaded properly');
-} else {
-    console.log('Chart.js loaded successfully, version:', Chart.version);
-}
-
-const chartData = {{ chart_data|safe }};
-console.log('Chart data received:', chartData);
-
-const chartDefaults = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: {
-            display: true,
-            position: 'top',
-        },
-    },
-    scales: {
-        y: {
-            beginAtZero: true,
-            ticks: {
-                precision: 0
-            }
-        }
-    }
-};
-
-// Initialize Charts
-let trendChart, severityChart, networkChart;
-
-function initializeCharts() {
-    console.log('initializeCharts function called');
-    try {
-        if (typeof Chart === 'undefined') {
-            console.error('Chart.js is not available');
-            return;
-        }
-        
-        console.log('Starting chart initialization...');
-        
-        // Section A Charts
-        initTrendChart();
-        initSeverityChart();
-        initNetworkChart();
-
-        // Section B Charts
-        initHourlyChart();
-        initNetworkTrendsChart();
-        initResolutionChart();
-
-        // Section C Charts
-        initCauseChart();
-        initOriginChart();
-        initResolutionDistChart();
-        initDayChart();
-        initHealthChart();
-        
-        console.log('All charts initialized successfully');
-    } catch (error) {
-        console.error('Error initializing charts:', error);
-    }
-}
-
-function initTrendChart() {
-    console.log('Initializing trend chart...');
-    const ctx = document.getElementById('trendChart');
-    if (!ctx) {
-        console.error('Trend chart canvas element not found');
-        return;
-    }
-    
-    if (!chartData.trend_7d) {
-        console.error('Trend chart data not available');
-        return;
-    }
-    
-    const trendData7d = chartData.trend_7d;
-    console.log('Trend chart data:', trendData7d);
-    
-    try {
-        trendChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: trendData7d.map(d => d.display_date),
-                datasets: [{
-                    label: 'Incidents',
-                    data: trendData7d.map(d => d.count),
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#0d6efd',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 2,
-                    pointRadius: 6,
-                    pointHoverRadius: 8,
-                }]
-            },
-            options: {
-                ...chartDefaults,
-                plugins: {
-                    ...chartDefaults.plugins,
-                    title: {
-                        display: false
-                    }
-                }
-            }
-        });
-        console.log('Trend chart created successfully');
-    } catch (error) {
-        console.error('Error creating trend chart:', error);
-    }
-}
-
-function initSeverityChart() {
-    console.log('Initializing severity chart...');
-    const ctx = document.getElementById('severityChart');
-    if (!ctx) {
-        console.error('Severity chart canvas element not found');
-        return;
-    }
-    
-    if (!chartData.severity_distribution) {
-        console.error('Severity chart data not available');
-        return;
-    }
-    
-    const severity = chartData.severity_distribution;
-    const hasData = severity.new || severity.low || severity.medium || severity.critical;
-    
-    console.log('Severity chart data:', severity, 'Has data:', hasData);
-    
-    if (!hasData) {
-        console.log('No active incidents for severity chart');
-        const canvasCtx = ctx.getContext('2d');
-        canvasCtx.fillStyle = '#6c757d';
-        canvasCtx.font = '16px Arial';
-        canvasCtx.textAlign = 'center';
-        canvasCtx.fillText('No active incidents', ctx.width/2, ctx.height/2);
-        return;
-    }
-    
-    try {
-        severityChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['New', 'Low', 'Medium', 'Critical'],
-                datasets: [{
-                    data: [severity.new, severity.low, severity.medium, severity.critical],
-                    backgroundColor: [
-                        '#6c757d', // New - gray
-                        '#ffc107', // Low - yellow
-                        '#fd7e14', // Medium - orange  
-                        '#dc3545'  // Critical - red
-                    ],
-                    borderWidth: 2,
-                    borderColor: '#ffffff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            padding: 20,
-                            usePointStyle: true,
-                        }
-                    }
-                }
-            }
-        });
-        console.log('Severity chart created successfully');
-    } catch (error) {
-        console.error('Error creating severity chart:', error);
-    }
-}
-
-function initNetworkChart() {
-    console.log('Initializing network chart...');
-    const ctx = document.getElementById('networkChart');
-    if (!ctx) {
-        console.error('Network chart canvas element not found');
-        return;
-    }
-    
-    if (!chartData.network_comparison) {
-        console.error('Network chart data not available');
-        return;
-    }
-    
-    const comparison = chartData.network_comparison;
-    console.log('Network chart data:', comparison);
-    
-    try {
-        networkChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: comparison.labels,
-                datasets: [
-                    {
-                        label: 'Active Incidents',
-                        data: comparison.active_data,
-                        backgroundColor: 'rgba(220, 53, 69, 0.8)',
-                        borderColor: '#dc3545',
-                        borderWidth: 1
-                    },
-                    {
-                        label: 'Total Incidents',
-                        data: comparison.total_data,
-                        backgroundColor: 'rgba(13, 110, 253, 0.3)',
-                        borderColor: '#0d6efd',
-                        borderWidth: 1
-                    }
-                ]
-            },
-            options: {
-                ...chartDefaults,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        }
-                    }
-                }
-            }
-        });
-        console.log('Network chart created successfully');
-    } catch (error) {
-        console.error('Error creating network chart:', error);
-    }
-}
-
-// Trend Period Toggle
-function setupTrendToggle() {
-    const toggleElement = document.getElementById('trendPeriodToggle');
-    if (toggleElement) {
-        toggleElement.addEventListener('change', function(e) {
-            if (e.target.name === 'trendPeriod') {
-                updateTrendChart(e.target.value);
-            }
-        });
-        console.log('Trend toggle event listener attached');
-    } else {
-        console.error('Trend toggle element not found');
-    }
-}
-
-function updateTrendChart(period) {
-    if (!trendChart) {
-        console.log('Trend chart not available for update');
-        return;
-    }
-    
-    const data = period === '7' ? chartData.trend_7d : chartData.trend_30d;
-    if (!data) {
-        console.log('No data available for period:', period);
-        return;
-    }
-    
-    trendChart.data.labels = data.map(d => d.display_date);
-    trendChart.data.datasets[0].data = data.map(d => d.count);
-    trendChart.update('active');
-    
-    console.log(`Trend chart updated to ${period} days`);
-}
-
-// SECTION B: Advanced Chart Initializations
-
-function initHourlyChart() {
-    console.log('Initializing hourly distribution chart...');
-    const ctx = document.getElementById('hourlyChart');
-    if (!ctx || !chartData.hourly_distribution) {
-        console.error('Hourly chart: Missing canvas or data');
-        return;
-    }
-    
-    const hourlyData = chartData.hourly_distribution;
-    console.log('Hourly chart data:', hourlyData);
-    
-    // Update peak hour display
-    if (chartData.peak_analysis) {
-        document.getElementById('peakHourDisplay').textContent = 
-            `${chartData.peak_analysis.peak_hour} (${chartData.peak_analysis.peak_hour_count} incidents)`;
-    }
-    
-    try {
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: hourlyData.map(d => d.hour),
-                datasets: [{
-                    label: 'Incidents by Hour',
-                    data: hourlyData.map(d => d.count),
-                    backgroundColor: 'rgba(13, 202, 240, 0.6)',
-                    borderColor: '#0dcaf0',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `${context.parsed.y} incident(s)`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        }
-                    }
-                }
-            }
-        });
-        console.log('Hourly chart created successfully');
-    } catch (error) {
-        console.error('Error creating hourly chart:', error);
-    }
-}
-
-function initNetworkTrendsChart() {
-    console.log('Initializing network trends chart...');
-    const ctx = document.getElementById('networkTrendsChart');
-    if (!ctx || !chartData.network_trends) {
-        console.error('Network trends chart: Missing canvas or data');
-        return;
-    }
-    
-    const trendsData = chartData.network_trends;
-    console.log('Network trends data:', trendsData);
-    
-    try {
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: trendsData.labels,
-                datasets: trendsData.datasets
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'bottom',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 15
-                        }
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        }
-                    }
-                }
-            }
-        });
-        console.log('Network trends chart created successfully');
-    } catch (error) {
-        console.error('Error creating network trends chart:', error);
-    }
-}
-
-function initResolutionChart() {
-    console.log('Initializing resolution time chart...');
-    const ctx = document.getElementById('resolutionChart');
-    if (!ctx || !chartData.resolution_trends) {
-        console.error('Resolution chart: Missing canvas or data');
-        return;
-    }
-    
-    const resolutionData = chartData.resolution_trends;
-    console.log('Resolution chart data:', resolutionData);
-    
-    try {
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: resolutionData.map(d => d.week),
-                datasets: [{
-                    label: 'Avg Resolution Time (hours)',
-                    data: resolutionData.map(d => d.avg_hours),
-                    borderColor: '#ffc107',
-                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#ffc107',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 2,
-                    pointRadius: 6,
-                    pointHoverRadius: 8,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top'
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const dataPoint = resolutionData[context.dataIndex];
-                                return [
-                                    `Avg Time: ${context.parsed.y} hours`,
-                                    `Resolved: ${dataPoint.count} incidents`
-                                ];
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Hours'
-                        }
-                    }
-                }
-            }
-        });
-        console.log('Resolution chart created successfully');
-    } catch (error) {
-        console.error('Error creating resolution chart:', error);
-    }
-}
-
-// SECTION C: Distribution Chart Initializations
-function initCauseChart() {
-    console.log('Initializing cause distribution chart...');
-    const ctx = document.getElementById('causeChart');
-    if (!ctx || !chartData.cause_distribution) {
-        console.error('Cause chart: Missing canvas or data');
-        return;
-    }
-    
-    const causeData = chartData.cause_distribution;
-    console.log('Cause chart data:', causeData);
-    
-    if (causeData.labels.length === 0) {
-        const canvasCtx = ctx.getContext('2d');
-        canvasCtx.fillStyle = '#6c757d';
-        canvasCtx.font = '14px Arial';
-        canvasCtx.textAlign = 'center';
-        canvasCtx.fillText('No cause data available', ctx.width/2, ctx.height/2);
-        return;
-    }
-    
-    try {
-        new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: causeData.labels,
-                datasets: [{
-                    data: causeData.data,
-                    backgroundColor: [
-                        '#dc3545', '#fd7e14', '#ffc107', '#20c997', '#0dcaf0',
-                        '#0d6efd', '#6f42c1', '#d63384', '#198754', '#6c757d'
-                    ],
-                    borderWidth: 2,
-                    borderColor: '#ffffff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            padding: 10,
-                            usePointStyle: true,
-                            font: {
-                                size: 11
-                            }
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.label || '';
-                                const value = context.parsed || 0;
-                                const total = causeData.total;
-                                const percentage = ((value / total) * 100).toFixed(1);
-                                return `${label}: ${value} (${percentage}%)`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        console.log('Cause chart created successfully');
-    } catch (error) {
-        console.error('Error creating cause chart:', error);
-    }
-}
-
-function initOriginChart() {
-    console.log('Initializing origin distribution chart...');
-    const ctx = document.getElementById('originChart');
-    if (!ctx || !chartData.origin_distribution) {
-        console.error('Origin chart: Missing canvas or data');
-        return;
-    }
-    
-    const originData = chartData.origin_distribution;
-    console.log('Origin chart data:', originData);
-    
-    if (originData.labels.length === 0) {
-        const canvasCtx = ctx.getContext('2d');
-        canvasCtx.fillStyle = '#6c757d';
-        canvasCtx.font = '14px Arial';
-        canvasCtx.textAlign = 'center';
-        canvasCtx.fillText('No origin data available', ctx.width/2, ctx.height/2);
-        return;
-    }
-    
-    try {
-        new Chart(ctx, {
-            type: 'pie',
-            data: {
-                labels: originData.labels,
-                datasets: [{
-                    data: originData.data,
-                    backgroundColor: [
-                        '#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0',
-                        '#6f42c1', '#fd7e14', '#20c997', '#d63384', '#6c757d'
-                    ],
-                    borderWidth: 2,
-                    borderColor: '#ffffff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            padding: 10,
-                            usePointStyle: true,
-                            font: {
-                                size: 11
-                            }
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.label || '';
-                                const value = context.parsed || 0;
-                                const total = originData.total;
-                                const percentage = ((value / total) * 100).toFixed(1);
-                                return `${label}: ${value} (${percentage}%)`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        console.log('Origin chart created successfully');
-    } catch (error) {
-        console.error('Error creating origin chart:', error);
-    }
-}
-
-function initResolutionDistChart() {
-    console.log('Initializing resolution distribution chart...');
-    const ctx = document.getElementById('resolutionDistChart');
-    if (!ctx || !chartData.resolution_distribution) {
-        console.error('Resolution dist chart: Missing canvas or data');
-        return;
-    }
-    
-    const resData = chartData.resolution_distribution;
-    console.log('Resolution distribution data:', resData);
-    
-    try {
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: resData.labels,
-                datasets: [{
-                    label: 'Number of Incidents',
-                    data: resData.data,
-                    backgroundColor: 'rgba(13, 110, 253, 0.6)',
-                    borderColor: '#0d6efd',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        }
-                    }
-                }
-            }
-        });
-        console.log('Resolution distribution chart created successfully');
-    } catch (error) {
-        console.error('Error creating resolution dist chart:', error);
-    }
-}
-
-function initDayChart() {
-    console.log('Initializing day of week chart...');
-    const ctx = document.getElementById('dayChart');
-    if (!ctx || !chartData.day_distribution) {
-        console.error('Day chart: Missing canvas or data');
-        return;
-    }
-    
-    const dayData = chartData.day_distribution;
-    console.log('Day chart data:', dayData);
-    
-    // Update peak day display
-    if (dayData.peak_day) {
-        document.getElementById('peakDayDisplay').textContent = dayData.peak_day;
-    }
-    
-    try {
-        new Chart(ctx, {
-            type: 'polarArea',
-            data: {
-                labels: dayData.labels,
-                datasets: [{
-                    data: dayData.data,
-                    backgroundColor: [
-                        'rgba(13, 110, 253, 0.6)',
-                        'rgba(25, 135, 84, 0.6)',
-                        'rgba(255, 193, 7, 0.6)',
-                        'rgba(220, 53, 69, 0.6)',
-                        'rgba(111, 66, 193, 0.6)',
-                        'rgba(13, 202, 240, 0.6)',
-                        'rgba(253, 126, 20, 0.6)'
-                    ],
-                    borderColor: '#ffffff',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            padding: 10,
-                            usePointStyle: true
-                        }
-                    }
-                },
-                scales: {
-                    r: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        }
-                    }
-                }
-            }
-        });
-        console.log('Day chart created successfully');
-    } catch (error) {
-        console.error('Error creating day chart:', error);
-    }
-}
-
-function initHealthChart() {
-    console.log('Initializing health score chart...');
-    const ctx = document.getElementById('healthChart');
-    if (!ctx || !chartData.health_scores) {
-        console.error('Health chart: Missing canvas or data');
-        return;
-    }
-    
-    const healthData = chartData.health_scores;
-    console.log('Health score data:', healthData);
-    
-    const labels = [];
-    const scores = [];
-    const colors = [];
-    
-    Object.values(healthData).forEach(network => {
-        labels.push(network.name);
-        scores.push(network.score);
-        // Color based on score
-        if (network.score >= 90) colors.push('#198754');
-        else if (network.score >= 75) colors.push('#20c997');
-        else if (network.score >= 60) colors.push('#ffc107');
-        else if (network.score >= 40) colors.push('#fd7e14');
-        else colors.push('#dc3545');
-    });
-    
-    try {
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Health Score',
-                    data: scores,
-                    backgroundColor: colors,
-                    borderColor: colors,
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const score = context.parsed.x;
-                                const status = Object.values(healthData)[context.dataIndex].status;
-                                return `Score: ${score}/100 (${status})`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: {
-                            callback: function(value) {
-                                return value + '%';
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        console.log('Health chart created successfully');
-    } catch (error) {
-        console.error('Error creating health chart:', error);
-    }
-}
-
-
-// Section D: Real-time Updates 
-
-let autoRefreshInterval = null;
-let autoRefreshEnabled = true;
-
-function saveSettings() {
-    const settings = {
-        autoRefresh: document.getElementById('autoRefreshToggle')?.checked,
-        interval: document.getElementById('refreshInterval')?.value
-    };
-    localStorage.setItem('dashboardSettings', JSON.stringify(settings));
-}
-
-function loadSettings() {
-    const saved = localStorage.getItem('dashboardSettings');
-    if (saved) {
-        try {
-            const settings = JSON.parse(saved);
-            const toggle = document.getElementById('autoRefreshToggle');
-            const interval = document.getElementById('refreshInterval');
-            
-            if (toggle) toggle.checked = settings.autoRefresh;
-            if (interval) interval.value = settings.interval;
-            autoRefreshEnabled = settings.autoRefresh;
-        } catch (e) {
-            console.error('Error loading settings:', e);
-        }
-    }
-}
-
-function initInteractiveFeatures() {
-    console.log('Initializing interactive features...');
-    
-    loadSettings();
-    updateLastRefreshTime();
-    setupAutoRefresh();
-    
-    document.getElementById('manualRefresh')?.addEventListener('click', function() {
-        console.log('Manual refresh triggered');
-        refreshDashboardData();
-    });
-    
-    document.getElementById('autoRefreshToggle')?.addEventListener('change', function(e) {
-        autoRefreshEnabled = e.target.checked;
-        saveSettings();
-        if (autoRefreshEnabled) {
-            setupAutoRefresh();
-            showNotification('Auto-refresh enabled', 'success');
-        } else {
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-            }
-            showNotification('Auto-refresh disabled', 'info');
-        }
-    });
-    
-    document.getElementById('refreshInterval')?.addEventListener('change', function(e) {
-        saveSettings();
-        if (autoRefreshEnabled) {
-            setupAutoRefresh();
-            showNotification(`Refresh interval set to ${e.target.options[e.target.selectedIndex].text}`, 'info');
-        }
-    });
-    
-    document.getElementById('exportDashboard')?.addEventListener('click', function() {
-        exportDashboard();
-    });
-    
-    console.log('Interactive features initialized');
-}
-
-function setupAutoRefresh() {
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-    }
-    
-    if (!autoRefreshEnabled) return;
-    
-    const intervalSelect = document.getElementById('refreshInterval');
-    const intervalSeconds = parseInt(intervalSelect?.value || 60);
-    const intervalMs = intervalSeconds * 1000;
-    
-    console.log(`Setting up auto-refresh: ${intervalSeconds} seconds`);
-    
-    autoRefreshInterval = setInterval(function() {
-        refreshDashboardData();
-    }, intervalMs);
-}
-
-function refreshDashboardData() {
-    console.log('Refreshing dashboard data...');
-    showLoadingIndicator();
-    
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    
-    fetch('{% url "dashboard:refresh_charts" %}?period=7', {
-        method: 'GET',
-        headers: {
-            'X-CSRFToken': csrfToken,
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            console.log('Data refreshed successfully:', data);
-            updateCharts(data);
-            updateStatistics(data.stats);
-            updateLastRefreshTime();
-            showNotification('Dashboard updated', 'success');
-        } else {
-            console.error('Refresh failed:', data.error);
-            showNotification('Refresh failed', 'danger');
-        }
-    })
-    .catch(error => {
-        console.error('Refresh error:', error);
-        showNotification('Connection error - check console', 'danger');
-    })
-    .finally(() => {
-        hideLoadingIndicator();
-    });
-}
-
-function updateCharts(data) {
-    console.log('Updating charts with new data...');
-    
-    if (trendChart && data.charts.trend) {
-        trendChart.data.labels = data.charts.trend.map(d => d.display_date);
-        trendChart.data.datasets[0].data = data.charts.trend.map(d => d.count);
-        trendChart.update('active');
-    }
-    
-    if (severityChart && data.charts.severity) {
-        const severity = data.charts.severity;
-        severityChart.data.datasets[0].data = [severity.new, severity.low, severity.medium, severity.critical];
-        severityChart.update('active');
-    }
-    
-    if (networkChart && data.charts.network_comparison) {
-        const comparison = data.charts.network_comparison;
-        networkChart.data.datasets[0].data = comparison.active_data;
-        networkChart.data.datasets[1].data = comparison.total_data;
-        networkChart.update('active');
-    }
-}
-
-function updateStatistics(stats) {
-    console.log('Updating statistics:', stats);
-    const totalEl = document.querySelector('.enhanced-stat-card.total .stat-value');
-    const activeEl = document.querySelector('.enhanced-stat-card.active .stat-value');
-    const resolvedEl = document.querySelector('.enhanced-stat-card.resolved .stat-value');
-    
-    if (totalEl) totalEl.textContent = stats.total_incidents || 0;
-    if (activeEl) activeEl.textContent = stats.active_incidents || 0;
-    if (resolvedEl) resolvedEl.textContent = stats.resolved_today || 0;
-}
-
-function updateLastRefreshTime() {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        second: '2-digit'
-    });
-    
-    const element = document.getElementById('lastUpdateTime');
-    if (element) {
-        element.textContent = timeString;
-    }
-}
-
-function showLoadingIndicator() {
-    const existing = document.getElementById('loadingIndicator');
-    if (existing) return;
-    
-    const indicator = document.createElement('div');
-    indicator.id = 'loadingIndicator';
-    indicator.className = 'position-fixed top-0 end-0 m-3';
-    indicator.style.zIndex = '9999';
-    indicator.innerHTML = `
-        <div class="d-flex align-items-center bg-white p-3 rounded shadow">
-            <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <span class="text-muted">Updating...</span>
-        </div>
-    `;
-    document.body.appendChild(indicator);
-}
-
-function hideLoadingIndicator() {
-    const indicator = document.getElementById('loadingIndicator');
-    if (indicator) {
-        indicator.remove();
-    }
-}
-
-function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
-    notification.style.zIndex = '9999';
-    notification.style.minWidth = '250px';
-    notification.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => notification.remove(), 150);
-    }, 3000);
-}
-
-function exportDashboard() {
-    // This function is now replaced by the modal
-    // The button now opens the modal instead
-    console.log('Export button clicked - modal should open');
-}
-
-// PDF Export - Complete Working Version
+<script>
 (function() {
     'use strict';
     
-    // Global functions for preset buttons
+    console.log('Dashboard JavaScript initializing...');
+    
+    // Verify Chart.js is loaded
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded properly');
+        return;
+    }
+    
+    console.log('Chart.js loaded successfully, version:', Chart.version);
+    
+    // Get chart data from Django backend
+    const chartData = {{ chart_data|safe }};
+    console.log('Chart data received:', chartData);
+    
+    // Chart configuration defaults
+    const chartDefaults = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'top',
+            },
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: { precision: 0 }
+            }
+        }
+    };
+    
+    // Global chart instances
+    let trendChart, severityChart, networkChart;
+    
+    // Initialize all charts
+    function initializeCharts() {
+        console.log('Initializing all charts...');
+        try {
+            initTrendChart();
+            initSeverityChart();
+            initNetworkChart();
+            initHourlyChart();
+            initNetworkTrendsChart();
+            initResolutionChart();
+            initCauseChart();
+            initOriginChart();
+            initResolutionDistChart();
+            initDayChart();
+            initHealthChart();
+            console.log('All charts initialized successfully');
+        } catch (error) {
+            console.error('Error initializing charts:', error);
+        }
+    }
+    
+    // Trend Chart (7 days / 30 days toggle)
+    function initTrendChart() {
+        const ctx = document.getElementById('trendChart');
+        if (!ctx || !chartData.trend_7d) return;
+        
+        try {
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.trend_7d.map(d => d.display_date),
+                    datasets: [{
+                        label: 'Incidents',
+                        data: chartData.trend_7d.map(d => d.count),
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: chartDefaults
+            });
+            console.log('Trend chart created');
+        } catch (error) {
+            console.error('Trend chart error:', error);
+        }
+    }
+    
+    // Severity Distribution Chart
+    function initSeverityChart() {
+        const ctx = document.getElementById('severityChart');
+        if (!ctx || !chartData.severity_distribution) return;
+        
+        const severity = chartData.severity_distribution;
+        const hasData = severity.new || severity.low || severity.medium || severity.critical;
+        
+        if (!hasData) {
+            console.log('No active incidents for severity chart');
+            return;
+        }
+        
+        try {
+            severityChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['New', 'Low', 'Medium', 'Critical'],
+                    datasets: [{
+                        data: [severity.new, severity.low, severity.medium, severity.critical],
+                        backgroundColor: ['#6c757d', '#ffc107', '#fd7e14', '#dc3545'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { padding: 20, usePointStyle: true }
+                        }
+                    }
+                }
+            });
+            console.log('Severity chart created');
+        } catch (error) {
+            console.error('Severity chart error:', error);
+        }
+    }
+    
+    // Network Comparison Chart
+    function initNetworkChart() {
+        const ctx = document.getElementById('networkChart');
+        if (!ctx || !chartData.network_comparison) return;
+        
+        const comparison = chartData.network_comparison;
+        
+        try {
+            networkChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: comparison.labels,
+                    datasets: [
+                        {
+                            label: 'Active Incidents',
+                            data: comparison.active_data,
+                            backgroundColor: 'rgba(220, 53, 69, 0.8)',
+                            borderColor: '#dc3545',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Total Incidents',
+                            data: comparison.total_data,
+                            backgroundColor: 'rgba(13, 110, 253, 0.3)',
+                            borderColor: '#0d6efd',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: chartDefaults
+            });
+            console.log('Network chart created');
+        } catch (error) {
+            console.error('Network chart error:', error);
+        }
+    }
+    
+    // Hourly Distribution Chart
+    function initHourlyChart() {
+        const ctx = document.getElementById('hourlyChart');
+        if (!ctx || !chartData.hourly_distribution) return;
+        
+        if (chartData.peak_analysis) {
+            const peakEl = document.getElementById('peakHourDisplay');
+            if (peakEl) {
+                peakEl.textContent = `${chartData.peak_analysis.peak_hour} (${chartData.peak_analysis.peak_hour_count} incidents)`;
+            }
+        }
+        
+        try {
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartData.hourly_distribution.map(d => d.hour),
+                    datasets: [{
+                        label: 'Incidents by Hour',
+                        data: chartData.hourly_distribution.map(d => d.count),
+                        backgroundColor: 'rgba(13, 202, 240, 0.6)',
+                        borderColor: '#0dcaf0',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+            console.log('Hourly chart created');
+        } catch (error) {
+            console.error('Hourly chart error:', error);
+        }
+    }
+    
+    // Network Trends Chart
+    function initNetworkTrendsChart() {
+        const ctx = document.getElementById('networkTrendsChart');
+        if (!ctx || !chartData.network_trends) return;
+        
+        try {
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.network_trends.labels,
+                    datasets: chartData.network_trends.datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: { usePointStyle: true, padding: 15 }
+                        }
+                    },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+            console.log('Network trends chart created');
+        } catch (error) {
+            console.error('Network trends chart error:', error);
+        }
+    }
+    
+    // Resolution Time Chart
+    function initResolutionChart() {
+        const ctx = document.getElementById('resolutionChart');
+        if (!ctx || !chartData.resolution_trends) return;
+        
+        try {
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.resolution_trends.map(d => d.week),
+                    datasets: [{
+                        label: 'Avg Resolution Time (hours)',
+                        data: chartData.resolution_trends.map(d => d.avg_hours),
+                        borderColor: '#ffc107',
+                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+            console.log('Resolution chart created');
+        } catch (error) {
+            console.error('Resolution chart error:', error);
+        }
+    }
+    
+    // Cause Distribution Chart
+    function initCauseChart() {
+        const ctx = document.getElementById('causeChart');
+        if (!ctx || !chartData.cause_distribution) return;
+        if (chartData.cause_distribution.labels.length === 0) return;
+        
+        try {
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: chartData.cause_distribution.labels,
+                    datasets: [{
+                        data: chartData.cause_distribution.data,
+                        backgroundColor: ['#dc3545', '#fd7e14', '#ffc107', '#20c997', '#0dcaf0', '#0d6efd', '#6f42c1', '#d63384', '#198754', '#6c757d'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+            console.log('Cause chart created');
+        } catch (error) {
+            console.error('Cause chart error:', error);
+        }
+    }
+    
+    // Origin Distribution Chart
+    function initOriginChart() {
+        const ctx = document.getElementById('originChart');
+        if (!ctx || !chartData.origin_distribution) return;
+        if (chartData.origin_distribution.labels.length === 0) return;
+        
+        try {
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: chartData.origin_distribution.labels,
+                    datasets: [{
+                        data: chartData.origin_distribution.data,
+                        backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6f42c1', '#fd7e14', '#20c997', '#d63384', '#6c757d'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+            console.log('Origin chart created');
+        } catch (error) {
+            console.error('Origin chart error:', error);
+        }
+    }
+    
+    // Resolution Distribution Chart
+    function initResolutionDistChart() {
+        const ctx = document.getElementById('resolutionDistChart');
+        if (!ctx || !chartData.resolution_distribution) return;
+        
+        try {
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartData.resolution_distribution.labels,
+                    datasets: [{
+                        label: 'Number of Incidents',
+                        data: chartData.resolution_distribution.data,
+                        backgroundColor: 'rgba(13, 110, 253, 0.6)',
+                        borderColor: '#0d6efd',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+            console.log('Resolution dist chart created');
+        } catch (error) {
+            console.error('Resolution dist chart error:', error);
+        }
+    }
+    
+    // Day of Week Chart
+    function initDayChart() {
+        const ctx = document.getElementById('dayChart');
+        if (!ctx || !chartData.day_distribution) return;
+        
+        if (chartData.day_distribution.peak_day) {
+            const peakEl = document.getElementById('peakDayDisplay');
+            if (peakEl) peakEl.textContent = chartData.day_distribution.peak_day;
+        }
+        
+        try {
+            new Chart(ctx, {
+                type: 'polarArea',
+                data: {
+                    labels: chartData.day_distribution.labels,
+                    datasets: [{
+                        data: chartData.day_distribution.data,
+                        backgroundColor: [
+                            'rgba(13, 110, 253, 0.6)', 'rgba(25, 135, 84, 0.6)',
+                            'rgba(255, 193, 7, 0.6)', 'rgba(220, 53, 69, 0.6)',
+                            'rgba(111, 66, 193, 0.6)', 'rgba(13, 202, 240, 0.6)',
+                            'rgba(253, 126, 20, 0.6)'
+                        ],
+                        borderColor: '#ffffff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { r: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+            console.log('Day chart created');
+        } catch (error) {
+            console.error('Day chart error:', error);
+        }
+    }
+    
+    // Health Score Chart
+    function initHealthChart() {
+        const ctx = document.getElementById('healthChart');
+        if (!ctx || !chartData.health_scores) return;
+        
+        const labels = [];
+        const scores = [];
+        const colors = [];
+        
+        Object.values(chartData.health_scores).forEach(network => {
+            labels.push(network.name);
+            scores.push(network.score);
+            if (network.score >= 90) colors.push('#198754');
+            else if (network.score >= 75) colors.push('#20c997');
+            else if (network.score >= 60) colors.push('#ffc107');
+            else if (network.score >= 40) colors.push('#fd7e14');
+            else colors.push('#dc3545');
+        });
+        
+        try {
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Health Score',
+                        data: scores,
+                        backgroundColor: colors,
+                        borderColor: colors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { callback: function(value) { return value + '%'; } }
+                        }
+                    }
+                }
+            });
+            console.log('Health chart created');
+        } catch (error) {
+            console.error('Health chart error:', error);
+        }
+    }
+    
+    // Trend toggle functionality
+    function setupTrendToggle() {
+        const toggleElement = document.getElementById('trendPeriodToggle');
+        if (toggleElement) {
+            toggleElement.addEventListener('change', function(e) {
+                if (e.target.name === 'trendPeriod') {
+                    updateTrendChart(e.target.value);
+                }
+            });
+        }
+    }
+    
+    function updateTrendChart(period) {
+        if (!trendChart) return;
+        const data = period === '7' ? chartData.trend_7d : chartData.trend_30d;
+        if (!data) return;
+        
+        trendChart.data.labels = data.map(d => d.display_date);
+        trendChart.data.datasets[0].data = data.map(d => d.count);
+        trendChart.update('active');
+    }
+    
+    // Interactive features
+    let autoRefreshInterval = null;
+    let autoRefreshEnabled = true;
+    
+    function initInteractiveFeatures() {
+        loadSettings();
+        updateLastRefreshTime();
+        setupAutoRefresh();
+        
+        const manualRefresh = document.getElementById('manualRefresh');
+        if (manualRefresh) {
+            manualRefresh.addEventListener('click', refreshDashboardData);
+        }
+        
+        const autoToggle = document.getElementById('autoRefreshToggle');
+        if (autoToggle) {
+            autoToggle.addEventListener('change', function(e) {
+                autoRefreshEnabled = e.target.checked;
+                saveSettings();
+                if (autoRefreshEnabled) {
+                    setupAutoRefresh();
+                    showNotification('Auto-refresh enabled', 'success');
+                } else {
+                    if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+                    showNotification('Auto-refresh disabled', 'info');
+                }
+            });
+        }
+        
+        const refreshInterval = document.getElementById('refreshInterval');
+        if (refreshInterval) {
+            refreshInterval.addEventListener('change', function(e) {
+                saveSettings();
+                if (autoRefreshEnabled) {
+                    setupAutoRefresh();
+                    showNotification('Refresh interval updated', 'info');
+                }
+            });
+        }
+    }
+    
+    function saveSettings() {
+        const settings = {
+            autoRefresh: document.getElementById('autoRefreshToggle')?.checked,
+            interval: document.getElementById('refreshInterval')?.value
+        };
+        localStorage.setItem('dashboardSettings', JSON.stringify(settings));
+    }
+    
+    function loadSettings() {
+        const saved = localStorage.getItem('dashboardSettings');
+        if (saved) {
+            try {
+                const settings = JSON.parse(saved);
+                const toggle = document.getElementById('autoRefreshToggle');
+                const interval = document.getElementById('refreshInterval');
+                if (toggle) toggle.checked = settings.autoRefresh;
+                if (interval) interval.value = settings.interval;
+                autoRefreshEnabled = settings.autoRefresh;
+            } catch (e) {
+                console.error('Error loading settings:', e);
+            }
+        }
+    }
+    
+    function setupAutoRefresh() {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+        if (!autoRefreshEnabled) return;
+        
+        const intervalSelect = document.getElementById('refreshInterval');
+        const intervalSeconds = parseInt(intervalSelect?.value || 60);
+        const intervalMs = intervalSeconds * 1000;
+        
+        autoRefreshInterval = setInterval(refreshDashboardData, intervalMs);
+    }
+    
+    function refreshDashboardData() {
+        showLoadingIndicator();
+        
+        fetch('{% url "dashboard:refresh_charts" %}?period=7', {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateCharts(data);
+                updateStatistics(data.stats);
+                updateLastRefreshTime();
+                showNotification('Dashboard updated', 'success');
+            } else {
+                showNotification('Refresh failed', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Refresh error:', error);
+            showNotification('Connection error', 'danger');
+        })
+        .finally(() => hideLoadingIndicator());
+    }
+    
+    function updateCharts(data) {
+        if (trendChart && data.charts.trend) {
+            trendChart.data.labels = data.charts.trend.map(d => d.display_date);
+            trendChart.data.datasets[0].data = data.charts.trend.map(d => d.count);
+            trendChart.update('active');
+        }
+        
+        if (severityChart && data.charts.severity) {
+            const severity = data.charts.severity;
+            severityChart.data.datasets[0].data = [severity.new, severity.low, severity.medium, severity.critical];
+            severityChart.update('active');
+        }
+        
+        if (networkChart && data.charts.network_comparison) {
+            const comparison = data.charts.network_comparison;
+            networkChart.data.datasets[0].data = comparison.active_data;
+            networkChart.data.datasets[1].data = comparison.total_data;
+            networkChart.update('active');
+        }
+    }
+    
+    function updateStatistics(stats) {
+        const totalEl = document.querySelector('.enhanced-stat-card.total .stat-value');
+        const activeEl = document.querySelector('.enhanced-stat-card.active .stat-value');
+        const resolvedEl = document.querySelector('.enhanced-stat-card.resolved .stat-value');
+        
+        if (totalEl) totalEl.textContent = stats.total_incidents || 0;
+        if (activeEl) activeEl.textContent = stats.active_incidents || 0;
+        if (resolvedEl) resolvedEl.textContent = stats.resolved_today || 0;
+    }
+    
+    function updateLastRefreshTime() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        
+        const element = document.getElementById('lastUpdateTime');
+        if (element) element.textContent = timeString;
+    }
+    
+    function showLoadingIndicator() {
+        if (document.getElementById('loadingIndicator')) return;
+        
+        const indicator = document.createElement('div');
+        indicator.id = 'loadingIndicator';
+        indicator.className = 'position-fixed top-0 end-0 m-3';
+        indicator.style.zIndex = '9999';
+        indicator.innerHTML = `
+            <div class="d-flex align-items-center bg-white p-3 rounded shadow">
+                <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <span class="text-muted">Updating...</span>
+            </div>
+        `;
+        document.body.appendChild(indicator);
+    }
+    
+    function hideLoadingIndicator() {
+        const indicator = document.getElementById('loadingIndicator');
+        if (indicator) indicator.remove();
+    }
+    
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+        notification.style.zIndex = '9999';
+        notification.style.minWidth = '250px';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => notification.remove(), 150);
+        }, 3000);
+    }
+    
+    // PDF Export functionality
     window.setDateRange = function(preset) {
         const now = new Date();
         let startDate, endDate;
@@ -1904,103 +1541,36 @@ function exportDashboard() {
                 break;
         }
         
-        const startInput = document.getElementById('startDateTime');
-        const endInput = document.getElementById('endDateTime');
-        
-        if (startInput && endInput) {
-            startInput.value = window.formatDateTimeLocal(startDate);
-            endInput.value = window.formatDateTimeLocal(endDate);
-            hideValidationMessage();
-        }
+        document.getElementById('startDateTime').value = formatDateTimeLocal(startDate);
+        document.getElementById('endDateTime').value = formatDateTimeLocal(endDate);
     };
     
-    window.formatDateTimeLocal = function(date) {
+    function formatDateTimeLocal(date) {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
         return `${year}-${month}-${day}T${hours}:${minutes}`;
-    };
-    
-    function validateDateRange() {
-        const startInput = document.getElementById('startDateTime');
-        const endInput = document.getElementById('endDateTime');
-        
-        if (!startInput || !endInput) return false;
-        
-        if (!startInput.value || !endInput.value) {
-            showValidationMessage('Veuillez sélectionner les dates de début et de fin.');
-            return false;
-        }
-        
-        const startDate = new Date(startInput.value);
-        const endDate = new Date(endInput.value);
-        const now = new Date();
-        
-        if (startDate >= endDate) {
-            showValidationMessage('La date de début doit être antérieure à la date de fin.');
-            return false;
-        }
-        
-        if (endDate > now) {
-            showValidationMessage('La date de fin ne peut pas être dans le futur.');
-            return false;
-        }
-        
-        const hoursDiff = (endDate - startDate) / (1000 * 60 * 60);
-        if (hoursDiff < 1) {
-            showValidationMessage('La plage de dates doit être d\'au moins 1 heure.');
-            return false;
-        }
-        
-        const daysDiff = (endDate - startDate) / (1000 * 60 * 60 * 24);
-        if (daysDiff > 365) {
-            showValidationMessage('La plage de dates ne peut pas dépasser 1 an.');
-            return false;
-        }
-        
-        hideValidationMessage();
-        return true;
     }
     
-    function showValidationMessage(message) {
-        const messageDiv = document.getElementById('dateValidationMessage');
-        const textSpan = document.getElementById('validationText');
-        if (messageDiv && textSpan) {
-            textSpan.textContent = message;
-            messageDiv.classList.remove('d-none');
-        }
-    }
+    window.formatDateTimeLocal = formatDateTimeLocal;
     
-    function hideValidationMessage() {
-        const messageDiv = document.getElementById('dateValidationMessage');
-        if (messageDiv) {
-            messageDiv.classList.add('d-none');
-        }
-    }
-    
-    function showPdfLoadingOverlay() {
-        const overlay = document.getElementById('pdfLoadingOverlay');
-        if (overlay) overlay.classList.remove('d-none');
-    }
-    
-    function hidePdfLoadingOverlay() {
-        const overlay = document.getElementById('pdfLoadingOverlay');
-        if (overlay) overlay.classList.add('d-none');
-    }
-    
-    // Single DOMContentLoaded handler
+    // Initialize on DOM load
     document.addEventListener('DOMContentLoaded', function() {
-        // Form submission
+        console.log('DOM loaded, initializing dashboard...');
+        initializeCharts();
+        setupTrendToggle();
+        
+        setTimeout(() => {
+            initInteractiveFeatures();
+        }, 500);
+        
+        // PDF form handler
         const pdfForm = document.getElementById('pdfExportForm');
         if (pdfForm) {
             pdfForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
-                
-                if (!validateDateRange()) return;
-                
-                showPdfLoadingOverlay();
                 
                 try {
                     const formData = new FormData(this);
@@ -2011,114 +1581,31 @@ function exportDashboard() {
                     });
                     
                     if (response.ok) {
-                        const contentType = response.headers.get('content-type');
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'incident_report.pdf';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
                         
-                        if (contentType && contentType.includes('application/json')) {
-                            const data = await response.json();
-                            hidePdfLoadingOverlay();
-                            showNotification(data.error || 'Échec de la génération du PDF', 'danger');
-                        } else {
-                            const blob = await response.blob();
-                            const url = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            
-                            const disposition = response.headers.get('Content-Disposition');
-                            let filename = 'rapport_incidents.pdf';
-                            if (disposition && disposition.includes('filename=')) {
-                                filename = disposition.split('filename=')[1].replace(/"/g, '');
-                            }
-                            
-                            a.download = filename;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            window.URL.revokeObjectURL(url);
-                            
-                            hidePdfLoadingOverlay();
-                            showNotification('Rapport PDF généré avec succès!', 'success');
-                            
-                            const modalEl = document.getElementById('pdfExportModal');
-                            if (modalEl) {
-                                const modal = bootstrap.Modal.getInstance(modalEl);
-                                if (modal) modal.hide();
-                            }
-                        }
+                        showNotification('PDF generated successfully!', 'success');
+                        
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('pdfExportModal'));
+                        if (modal) modal.hide();
                     } else {
-                        const data = await response.json().catch(() => ({ error: 'Erreur serveur' }));
-                        hidePdfLoadingOverlay();
-                        showNotification(data.error || `Erreur: ${response.status}`, 'danger');
+                        showNotification('PDF generation failed', 'danger');
                     }
                 } catch (error) {
-                    hidePdfLoadingOverlay();
-                    showNotification(`Erreur réseau: ${error.message}`, 'danger');
-                    console.error('Erreur génération PDF:', error);
+                    console.error('PDF error:', error);
+                    showNotification('Network error', 'danger');
                 }
             });
         }
-        
-        // Modal initialization
-        const pdfModal = document.getElementById('pdfExportModal');
-        if (pdfModal) {
-            pdfModal.addEventListener('show.bs.modal', function() {
-                const now = new Date();
-                const oneDayAgo = new Date(now);
-                oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-                
-                document.getElementById('endDateTime').value = window.formatDateTimeLocal(now);
-                document.getElementById('startDateTime').value = window.formatDateTimeLocal(oneDayAgo);
-                hideValidationMessage();
-            });
-        }
     });
-})();
-
-// Chart setup
-function setupTrendToggle() {
-    const toggleElement = document.getElementById('trendPeriodToggle');
-    if (toggleElement) {
-        toggleElement.addEventListener('change', function(e) {
-            if (e.target.name === 'trendPeriod') {
-                updateTrendChart(e.target.value);
-            }
-        });
-    }
-}
-
-function updateTrendChart(period) {
-    if (!trendChart) return;
-    const data = period === '7' ? chartData.trend_7d : chartData.trend_30d;
-    if (!data) return;
     
-    trendChart.data.labels = data.map(d => d.display_date);
-    trendChart.data.datasets[0].data = data.map(d => d.count);
-    trendChart.update('active');
-}
-
-// Print styles
-const printStyles = document.createElement('style');
-printStyles.innerHTML = `
-    @media print {
-        .sidebar, .top-header, button, .form-check, .form-select {
-            display: none !important;
-        }
-        .main-content {
-            margin-left: 0 !important;
-        }
-        .card {
-            break-inside: avoid;
-            page-break-inside: avoid;
-        }
-    }
-`;
-document.head.appendChild(printStyles);
-
-// Initialize everything
-console.log('About to initialize charts...');
-initializeCharts();
-setupTrendToggle();
-
-setTimeout(() => {
-    initInteractiveFeatures();
-}, 1000);
+})();
+</script>
 {% endblock %}
