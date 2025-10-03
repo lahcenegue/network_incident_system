@@ -50,6 +50,10 @@ INSTALLED_APPS = [
        # Third-party apps
        'crispy_forms',
        'crispy_bootstrap5',
+
+        # Celery apps
+       'django_celery_beat',
+       'django_celery_results',
    ]
 
 MIDDLEWARE = [
@@ -198,3 +202,31 @@ X_FRAME_OPTIONS = 'DENY'
 
 # Custom User Model
 AUTH_USER_MODEL = 'authentication.CustomUser'
+
+# ============================================
+# CELERY CONFIGURATION
+# ============================================
+
+# Celery Broker (Redis)
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+
+# Celery Settings
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+# Celery Beat Settings (for periodic tasks)
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+# Task time limits (optional but recommended)
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes
+
+# Task result expiration
+CELERY_RESULT_EXPIRES = 3600  # 1 hour
+
+# Celery Worker Settings
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
