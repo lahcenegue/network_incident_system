@@ -7,8 +7,6 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from datetime import timedelta
 
-User = get_user_model()
-
 class BaseIncident(models.Model):
     """
     Base model for all incident types with common fields
@@ -74,9 +72,34 @@ class BaseIncident(models.Model):
     is_archived = models.BooleanField(default=False)
     archived_at = models.DateTimeField(null=True, blank=True)
     
-    # Audit fields
+    # Audit fields - User tracking and timestamps
+    created_by = models.ForeignKey(
+        'authentication.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='%(class)s_created',
+        help_text="User who created this incident"
+    )
+    updated_by = models.ForeignKey(
+        'authentication.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='%(class)s_updated',
+        help_text="User who last updated this incident"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # Historical archival fields
+    archived_by = models.ForeignKey(
+        'authentication.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='%(class)s_archived',
+        help_text="User who archived this incident"
+    )
     
     # Correction tracking (for admin review)
     correction_required = models.BooleanField(default=False)
@@ -219,6 +242,106 @@ class BaseIncident(models.Model):
         
         return False
     
+    def can_be_archived(self):
+        """
+        Check if incident meets ALL criteria for archival.
+        
+        CRITICAL BUSINESS RULES:
+        1. Must be resolved (date_time_recovery is not null)
+        2. Must have cause field filled (not empty/null)
+        3. Must have origin field filled (not empty/null)
+        4. At least 2 hours must have passed since resolution
+        5. Must not already be archived
+        
+        Returns:
+            bool: True if incident can be archived, False otherwise
+        """
+        # Check if incident is resolved
+        if not self.date_time_recovery:
+            return False
+        
+        # Check if cause is filled (REQUIRED for archival)
+        if not self.cause or self.cause.strip() == '':
+            return False
+        
+        # Check if origin is filled (REQUIRED for archival)
+        if not self.origin or self.origin.strip() == '':
+            return False
+        
+        # Check if already archived
+        if self.is_archived:
+            return False
+        
+        # Check if 2 hours have passed since resolution
+        time_since_resolution = timezone.now() - self.date_time_recovery
+        if time_since_resolution < timedelta(hours=2):
+            return False
+        
+        return True
+    
+    def archive(self, user):
+        """
+        Archive this incident.
+        
+        This method marks the incident as archived and records who archived it
+        and when. It should only be called after verifying can_be_archived() 
+        returns True.
+        
+        Args:
+            user: The CustomUser object performing the archival
+            
+        Returns:
+            bool: True if archived successfully, False otherwise
+            
+        Raises:
+            ValueError: If incident cannot be archived
+        """
+        if not self.can_be_archived():
+            raise ValueError(
+                "Incident cannot be archived. Ensure it is resolved, "
+                "has cause and origin filled, and 2+ hours have passed since resolution."
+            )
+        
+        try:
+            self.is_archived = True
+            self.archived_at = timezone.now()
+            self.archived_by = user
+            self.updated_by = user
+            self.save(update_fields=['is_archived', 'archived_at', 'archived_by', 'updated_by', 'updated_at'])
+            return True
+        except Exception as e:
+            # Log the error (you can enhance this with proper logging later)
+            print(f"Error archiving incident {self.id}: {str(e)}")
+            return False
+    
+    def restore(self, user):
+        """
+        Restore this incident from archived state.
+        
+        This method unarchives an incident, clearing the archived status
+        and updating the audit trail.
+        
+        Args:
+            user: The CustomUser object performing the restoration
+            
+        Returns:
+            bool: True if restored successfully, False otherwise
+        """
+        if not self.is_archived:
+            return False  # Already active, nothing to restore
+        
+        try:
+            self.is_archived = False
+            self.archived_at = None
+            self.archived_by = None
+            self.updated_by = user
+            self.save(update_fields=['is_archived', 'archived_at', 'archived_by', 'updated_by', 'updated_at'])
+            return True
+        except Exception as e:
+            # Log the error (you can enhance this with proper logging later)
+            print(f"Error restoring incident {self.id}: {str(e)}")
+            return False
+    
     def get_cause_display(self):
         """Return cause with other description if applicable"""
         if not self.cause:
@@ -310,20 +433,6 @@ class TransportNetworkIncident(BaseIncident):
         help_text="Responsibility assignment (optional)"
     )
 
-    # System Fields
-    created_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='transport_incidents_created'
-    )
-    updated_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='transport_incidents_updated'
-    )
-
     class Meta:
         verbose_name = "Transport Network Incident"
         verbose_name_plural = "Transport Network Incidents"
@@ -360,20 +469,6 @@ class FileAccessNetworkIncident(BaseIncident):
         validators=[validate_ip_address],
         help_text="IPv4 or IPv6 address"
     )
-
-    # System Fields
-    created_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='file_access_incidents_created'
-    )
-    updated_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='file_access_incidents_updated'
-    )
     
     class Meta:
         verbose_name = "File Access Network Incident"
@@ -405,20 +500,6 @@ class RadioAccessNetworkIncident(BaseIncident):
         verbose_name="IP ADDRESS",
         validators=[validate_ip_address],
         help_text="IPv4 or IPv6 address"
-    )
-
-    # System Fields
-    created_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='radio_access_incidents_created'
-    )
-    updated_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='radio_access_incidents_updated'
     )
     
     class Meta:
@@ -486,20 +567,6 @@ class CoreNetworkIncident(BaseIncident):
         null=True,
         help_text="Location description for extremity B"
     )
-
-    # System Fields
-    created_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='core_incidents_created'
-    )
-    updated_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='core_incidents_updated'
-    )
     
     class Meta:
         verbose_name = "Core Network Incident"
@@ -536,20 +603,6 @@ class BackboneInternetNetworkIncident(BaseIncident):
         verbose_name="LINK LABEL",
         max_length=200,
         help_text="Link name or label identification"
-    )
-
-    # System Fields
-    created_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='backbone_incidents_created'
-    )
-    updated_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='backbone_incidents_updated'
     )
     
     class Meta:
@@ -611,7 +664,7 @@ class AuditLog(models.Model):
     ]
     
     user = models.ForeignKey(
-        User,
+        'authentication.CustomUser', 
         on_delete=models.SET_NULL,
         null=True,
         help_text="User who performed the action"
