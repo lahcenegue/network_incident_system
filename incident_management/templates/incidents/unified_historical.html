@@ -1,0 +1,550 @@
+{% extends 'base/base.html' %}
+{% load incident_tags %}
+
+{% block title %}Historical Incidents - All Networks{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Reuse modern dashboard design */
+:root {
+  --surface-primary: #ffffff;
+  --surface-secondary: #f8fafc;
+  --surface-tertiary: #f1f5f9;
+  --border-light: #e2e8f0;
+  --border-medium: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 2px 0 0 0;
+}
+
+/* Network Stats Grid */
+.network-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.network-stat-card {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.network-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+}
+
+.network-stat-card.transport::before { background: #8b5cf6; }
+.network-stat-card.file-access::before { background: #10b981; }
+.network-stat-card.radio-access::before { background: #f59e0b; }
+.network-stat-card.core::before { background: #8b5cf6; }
+.network-stat-card.backbone::before { background: #f59e0b; }
+
+.network-stat-number {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.network-stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* Filter Container */
+.filter-container {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.filter-field input,
+.filter-field select {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.filter-field input:focus,
+.filter-field select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  outline: none;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+}
+
+/* Table Styles */
+.incidents-container {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.table-header {
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-light);
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.table-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.table-count {
+  background: #16a34a;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.modern-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.modern-table thead th {
+  background: var(--surface-secondary);
+  border-bottom: 1px solid var(--border-light);
+  padding: 16px 20px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
+}
+
+.modern-table tbody td {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+  font-size: 14px;
+  background: var(--surface-primary);
+}
+
+.modern-table tbody tr:hover td {
+  background: var(--surface-secondary);
+}
+
+.modern-table tbody tr td:first-child {
+  border-left: 4px solid #16a34a;
+}
+
+/* Network Badge */
+.network-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.network-badge.transport {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.network-badge.file-access {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.network-badge.radio-access {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.network-badge.core {
+  background: #ddd6fe;
+  color: #5b21b6;
+}
+
+.network-badge.backbone {
+  background: #fed7aa;
+  color: #c2410c;
+}
+
+.incident-id {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--surface-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.duration-display {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--surface-tertiary);
+  color: var(--text-primary);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.action-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.action-btn:hover {
+  background: var(--surface-secondary);
+  border-color: var(--border-medium);
+  transform: translateY(-1px);
+}
+
+.action-btn.restore {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: white;
+}
+
+.action-btn.restore:hover {
+  background: #15803d;
+  border-color: #15803d;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  color: #16a34a;
+  margin-bottom: 16px;
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.empty-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">
+        <i class="bi bi-archive" style="color: #16a34a;"></i>
+        Historical Incidents
+      </h1>
+      <p class="page-subtitle">Archived incidents from all network types</p>
+    </div>
+  </div>
+
+  <!-- Network Statistics Grid -->
+  <div class="network-stats-grid">
+    <div class="network-stat-card transport">
+      <div class="network-stat-number">{{ stats_by_network.transport|default:0 }}</div>
+      <div class="network-stat-label">Transport</div>
+    </div>
+    <div class="network-stat-card file-access">
+      <div class="network-stat-number">{{ stats_by_network.file_access|default:0 }}</div>
+      <div class="network-stat-label">File Access</div>
+    </div>
+    <div class="network-stat-card radio-access">
+      <div class="network-stat-number">{{ stats_by_network.radio_access|default:0 }}</div>
+      <div class="network-stat-label">Radio Access</div>
+    </div>
+    <div class="network-stat-card core">
+      <div class="network-stat-number">{{ stats_by_network.core|default:0 }}</div>
+      <div class="network-stat-label">Core</div>
+    </div>
+    <div class="network-stat-card backbone">
+      <div class="network-stat-number">{{ stats_by_network.backbone_internet|default:0 }}</div>
+      <div class="network-stat-label">Backbone</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filter-container">
+    <form method="get" action="{% url 'incidents:unified_historical' %}">
+      <div class="filter-grid">
+        <div class="filter-field">
+          <label class="filter-label">
+            <i class="bi bi-search"></i> Search
+          </label>
+          <input type="text" name="search" class="form-control" 
+                 placeholder="Search by ID, cause, origin..." 
+                 value="{{ current_filters.search }}">
+        </div>
+
+        <div class="filter-field">
+          <label class="filter-label">
+            <i class="bi bi-diagram-3"></i> Network Type
+          </label>
+          <select name="network_type" class="form-select">
+            <option value="">All Networks</option>
+            <option value="transport" {% if current_filters.network_type == 'transport' %}selected{% endif %}>Transport Networks</option>
+            <option value="file_access" {% if current_filters.network_type == 'file_access' %}selected{% endif %}>File Access Networks</option>
+            <option value="radio_access" {% if current_filters.network_type == 'radio_access' %}selected{% endif %}>Radio Access Networks</option>
+            <option value="core" {% if current_filters.network_type == 'core' %}selected{% endif %}>Core Networks</option>
+            <option value="backbone_internet" {% if current_filters.network_type == 'backbone_internet' %}selected{% endif %}>Backbone Internet Networks</option>
+          </select>
+        </div>
+
+        <div class="filter-field">
+          <label class="filter-label">
+            <i class="bi bi-exclamation-circle"></i> Cause
+          </label>
+          <select name="cause" class="form-select">
+            <option value="">All Causes</option>
+            {% for cause in all_causes %}
+            <option value="{{ cause }}" {% if current_filters.cause == cause %}selected{% endif %}>{{ cause }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="filter-field">
+          <label class="filter-label">
+            <i class="bi bi-geo-alt"></i> Origin
+          </label>
+          <select name="origin" class="form-select">
+            <option value="">All Origins</option>
+            {% for origin in all_origins %}
+            <option value="{{ origin }}" {% if current_filters.origin == origin %}selected{% endif %}>{{ origin }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="filter-field">
+          <label class="filter-label">
+            <i class="bi bi-calendar"></i> Date From
+          </label>
+          <input type="date" name="date_from" class="form-control" value="{{ current_filters.date_from }}">
+        </div>
+
+        <div class="filter-field">
+          <label class="filter-label">
+            <i class="bi bi-calendar"></i> Date To
+          </label>
+          <input type="date" name="date_to" class="form-control" value="{{ current_filters.date_to }}">
+        </div>
+      </div>
+
+      <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-funnel"></i> Apply Filters
+        </button>
+        <a href="{% url 'incidents:unified_historical' %}" class="btn btn-outline-secondary">
+          <i class="bi bi-x-circle"></i> Clear All
+        </a>
+        {% if filter_active %}
+        <span class="badge bg-success ms-2">Filters Active</span>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- Archived Incidents Table -->
+  {% if incidents %}
+  <div class="incidents-container">
+    <div class="table-header">
+      <h2 class="table-title">
+        <i class="bi bi-archive-fill"></i>
+        Archived Incidents
+      </h2>
+      <span class="table-count">{{ total_archived }}</span>
+    </div>
+
+    <table class="modern-table">
+      <thead>
+        <tr>
+          <th>Network</th>
+          <th>ID</th>
+          <th>Location/Details</th>
+          <th>Incident Date</th>
+          <th>Resolved Date</th>
+          <th>Duration</th>
+          <th>Archived</th>
+          <th>Cause</th>
+          <th>Origin</th>
+          {% if request.user.is_admin %}
+          <th>Actions</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for incident in incidents %}
+        <tr>
+          <td>
+            <span class="network-badge {{ incident.network_type_key }}">
+              {{ incident.network_display_name|truncatechars:15 }}
+            </span>
+          </td>
+          <td>
+            <span class="incident-id">{{ incident.id|truncate_id }}</span>
+          </td>
+          <td>
+            {% if incident.network_type_key == 'transport' %}
+              {{ incident.region_loop }} - {{ incident.extremity_a|truncatechars:20 }}
+            {% elif incident.network_type_key == 'file_access' %}
+              {{ incident.do_wilaya }} - {{ incident.site }}
+            {% elif incident.network_type_key == 'radio_access' %}
+              {{ incident.do_wilaya }} - {{ incident.site }}
+            {% elif incident.network_type_key == 'core' %}
+              {{ incident.platform }} - {{ incident.region_node }}
+            {% elif incident.network_type_key == 'backbone_internet' %}
+              {{ incident.interconnect_type }} - {{ incident.link_label|truncatechars:20 }}
+            {% endif %}
+          </td>
+          <td>{{ incident.date_time_incident|date:"M d, Y H:i" }}</td>
+          <td>{{ incident.date_time_recovery|date:"M d, Y H:i" }}</td>
+          <td>
+            <span class="duration-display">{{ incident|duration_display }}</span>
+          </td>
+          <td>
+            <div style="font-size: 12px; color: var(--text-muted);">
+              {{ incident.archived_at|date:"M d, H:i" }}<br>
+              <small>by {{ incident.archived_by.username }}</small>
+            </div>
+          </td>
+          <td>{{ incident.cause|truncatechars:15 }}</td>
+          <td>{{ incident.origin|truncatechars:15 }}</td>
+          {% if request.user.is_admin %}
+          <td>
+            <div class="action-buttons">
+              <form method="post" action="{% url 'incidents:restore_incident' incident.id incident.network_type_key %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="action-btn restore" title="Restore" 
+                        onclick="return confirm('Restore this incident from archive?');">
+                  <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if incidents %}
+    {% include 'base/pagination.html' with page_obj=incidents %}
+  {% endif %}
+
+  {% else %}
+  <div class="empty-state">
+    <i class="bi bi-inbox empty-icon"></i>
+    <h3 class="empty-title">No Archived Incidents</h3>
+    <p class="empty-subtitle">There are no archived incidents matching your criteria.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

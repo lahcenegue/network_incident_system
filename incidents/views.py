@@ -683,3 +683,226 @@ def get_incident_detail(request, network_type, incident_id):
             'success': False,
             'error': str(e)
         }, status=500)
+    
+@login_required
+def unified_historical_incidents_view(request):
+    """
+    Unified view for all archived incidents across all 5 network types.
+    Shows archived incidents with filtering, search, and restore capabilities.
+    """
+    try:
+        # Get all archived incidents from all networks
+        transport_archived = TransportNetworkIncident.objects.filter(
+            is_archived=True
+        ).select_related('created_by', 'updated_by', 'archived_by')
+        
+        file_access_archived = FileAccessNetworkIncident.objects.filter(
+            is_archived=True
+        ).select_related('created_by', 'updated_by', 'archived_by')
+        
+        radio_access_archived = RadioAccessNetworkIncident.objects.filter(
+            is_archived=True
+        ).select_related('created_by', 'updated_by', 'archived_by')
+        
+        core_archived = CoreNetworkIncident.objects.filter(
+            is_archived=True
+        ).select_related('created_by', 'updated_by', 'archived_by')
+        
+        backbone_archived = BackboneInternetNetworkIncident.objects.filter(
+            is_archived=True
+        ).select_related('created_by', 'updated_by', 'archived_by')
+        
+        # Combine all querysets and add network_type attribute
+        all_archived = []
+        
+        for incident in transport_archived:
+            incident.network_type_key = 'transport'
+            incident.network_display_name = 'Transport Networks'
+            all_archived.append(incident)
+        
+        for incident in file_access_archived:
+            incident.network_type_key = 'file_access'
+            incident.network_display_name = 'File Access Networks'
+            all_archived.append(incident)
+        
+        for incident in radio_access_archived:
+            incident.network_type_key = 'radio_access'
+            incident.network_display_name = 'Radio Access Networks'
+            all_archived.append(incident)
+        
+        for incident in core_archived:
+            incident.network_type_key = 'core'
+            incident.network_display_name = 'Core Networks'
+            all_archived.append(incident)
+        
+        for incident in backbone_archived:
+            incident.network_type_key = 'backbone_internet'
+            incident.network_display_name = 'Backbone Internet Networks'
+            all_archived.append(incident)
+        
+        # Apply filters from GET parameters
+        network_filter = request.GET.get('network_type', '')
+        cause_filter = request.GET.get('cause', '')
+        origin_filter = request.GET.get('origin', '')
+        date_from = request.GET.get('date_from', '')
+        date_to = request.GET.get('date_to', '')
+        search_query = request.GET.get('search', '')
+        
+        # Filter by network type
+        if network_filter:
+            all_archived = [inc for inc in all_archived if inc.network_type_key == network_filter]
+        
+        # Filter by cause
+        if cause_filter:
+            all_archived = [inc for inc in all_archived if inc.cause and cause_filter.lower() in inc.cause.lower()]
+        
+        # Filter by origin
+        if origin_filter:
+            all_archived = [inc for inc in all_archived if inc.origin and origin_filter.lower() in inc.origin.lower()]
+        
+        # Filter by date range
+        if date_from:
+            try:
+                from datetime import datetime
+                date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
+                date_from_aware = timezone.make_aware(date_from_obj) if timezone.is_naive(date_from_obj) else date_from_obj
+                all_archived = [inc for inc in all_archived if inc.archived_at and inc.archived_at >= date_from_aware]
+            except ValueError:
+                pass
+        
+        if date_to:
+            try:
+                from datetime import datetime, time
+                date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
+                # Set time to end of day
+                date_to_obj = datetime.combine(date_to_obj.date(), time.max)
+                date_to_aware = timezone.make_aware(date_to_obj) if timezone.is_naive(date_to_obj) else date_to_obj
+                all_archived = [inc for inc in all_archived if inc.archived_at and inc.archived_at <= date_to_aware]
+            except ValueError:
+                pass
+        
+        # Search filter
+        if search_query:
+            search_lower = search_query.lower()
+            all_archived = [inc for inc in all_archived 
+                          if (str(inc.id).lower().startswith(search_lower) or
+                              (inc.impact_comment and search_lower in inc.impact_comment.lower()) or
+                              (inc.cause and search_lower in inc.cause.lower()) or
+                              (inc.origin and search_lower in inc.origin.lower()))]
+        
+        # Sort by archived_at (newest first)
+        all_archived.sort(key=lambda x: x.archived_at if x.archived_at else timezone.now(), reverse=True)
+        
+        # Calculate statistics by network
+        stats_by_network = {
+            'transport': len([i for i in all_archived if i.network_type_key == 'transport']),
+            'file_access': len([i for i in all_archived if i.network_type_key == 'file_access']),
+            'radio_access': len([i for i in all_archived if i.network_type_key == 'radio_access']),
+            'core': len([i for i in all_archived if i.network_type_key == 'core']),
+            'backbone_internet': len([i for i in all_archived if i.network_type_key == 'backbone_internet']),
+        }
+        
+        # Get unique causes and origins for filter dropdowns
+        all_causes = set()
+        all_origins = set()
+        for incident in all_archived:
+            if incident.cause:
+                all_causes.add(incident.cause)
+            if incident.origin:
+                all_origins.add(incident.origin)
+        
+        # Pagination
+        paginator = Paginator(all_archived, 25)
+        page_number = request.GET.get('page', 1)
+        
+        try:
+            incidents_page = paginator.page(page_number)
+        except (EmptyPage, InvalidPage):
+            incidents_page = paginator.page(1)
+        
+        context = {
+            'incidents': incidents_page,
+            'page_obj': incidents_page,
+            'total_archived': len(all_archived),
+            'stats_by_network': stats_by_network,
+            'all_causes': sorted(list(all_causes)),
+            'all_origins': sorted(list(all_origins)),
+            'current_filters': {
+                'network_type': network_filter,
+                'cause': cause_filter,
+                'origin': origin_filter,
+                'date_from': date_from,
+                'date_to': date_to,
+                'search': search_query,
+            },
+            'filter_active': any([network_filter, cause_filter, origin_filter, date_from, date_to, search_query]),
+        }
+        
+        return render(request, 'incidents/unified_historical.html', context)
+        
+    except Exception as e:
+        messages.error(request, f"Error loading historical incidents: {str(e)}")
+        return render(request, 'incidents/unified_historical.html', {
+            'incidents': [],
+            'total_archived': 0,
+            'stats_by_network': {},
+            'all_causes': [],
+            'all_origins': [],
+            'current_filters': {},
+            'filter_active': False,
+            'error': str(e)
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def restore_archived_incident(request, incident_id, network_type):
+    """
+    Restore an archived incident back to active status.
+    Only admins can restore incidents.
+    """
+    # Check admin permission
+    if not request.user.is_admin():
+        messages.error(request, "Only administrators can restore archived incidents.")
+        return redirect('incidents:unified_historical')
+    
+    try:
+        # Get the appropriate model
+        model_map = {
+            'transport': TransportNetworkIncident,
+            'file_access': FileAccessNetworkIncident,
+            'radio_access': RadioAccessNetworkIncident,
+            'core': CoreNetworkIncident,
+            'backbone_internet': BackboneInternetNetworkIncident,
+        }
+        
+        if network_type not in model_map:
+            messages.error(request, f"Invalid network type: {network_type}")
+            return redirect('incidents:unified_historical')
+        
+        model = model_map[network_type]
+        incident = get_object_or_404(model, id=incident_id)
+        
+        # Check if incident is archived
+        if not incident.is_archived:
+            messages.warning(request, f"Incident {str(incident_id)[:8]} is not archived.")
+            return redirect('incidents:unified_historical')
+        
+        # Restore the incident
+        success = incident.restore(request.user)
+        
+        if success:
+            messages.success(
+                request, 
+                f"Incident {str(incident_id)[:8]} successfully restored from archive."
+            )
+        else:
+            messages.error(
+                request,
+                f"Failed to restore incident {str(incident_id)[:8]}. Please try again."
+            )
+        
+    except Exception as e:
+        messages.error(request, f"Error restoring incident: {str(e)}")
+    
+    return redirect('incidents:unified_historical')

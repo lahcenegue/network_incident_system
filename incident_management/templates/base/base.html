@@ -76,6 +76,14 @@
                         Dashboard
                     </a>
                 </li>
+
+                <!-- Add after Dashboard link -->
+                <li class="sidebar-item">
+                    <a href="{% url 'incidents:unified_historical' %}" class="sidebar-link {% if request.resolver_match.url_name == 'unified_historical' %}active{% endif %}">
+                        <i class="bi bi-archive"></i>
+                        <span>Historical Incidents</span>
+                    </a>
+                </li>
                 
                 <!-- Transport Networks -->
                 <li class="has-submenu">

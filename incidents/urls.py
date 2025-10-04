@@ -39,6 +39,10 @@ urlpatterns = [
     path('backbone-internet-networks/historical/', views.historical_incidents_view, {'network_type': 'backbone_internet'}, name='backbone_internet_historical'),
     path('backbone-internet-networks/notification/<uuid:incident_id>/', views.incident_notification_prompt, {'network_type': 'backbone_internet'}, name='backbone_internet_incidents_with_notification'),
     
+    # Unified Historical View (All Networks)
+    path('historical/', views.unified_historical_incidents_view, name='unified_historical'),
+    path('historical/restore/<uuid:incident_id>/<str:network_type>/', views.restore_archived_incident, name='restore_incident'),
+    
     # AJAX endpoints for validation
     path('validate-field/<str:network_type>/', views.validate_incident_field, name='validate_field'),
     path('ajax-search/<str:network_type>/', views.ajax_search_incidents, name='ajax_search'),
