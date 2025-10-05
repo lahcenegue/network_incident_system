@@ -20,10 +20,12 @@ django-celery-beat==2.5.0
 django-celery-results==2.5.0
 django-crispy-forms==2.4
 django-timezone-field==7.1
+et_xmlfile==2.0.0
 fonttools==4.60.0
 html5lib==1.1
 kombu==5.5.4
 mysqlclient==2.2.7
+openpyxl==3.1.5
 packaging==25.0
 pillow==11.3.0
 prompt_toolkit==3.0.52
@@ -43,4 +45,5 @@ vine==5.1.0
 wcwidth==0.2.14
 weasyprint==58.1
 webencodings==0.5.1
+XlsxWriter==3.2.0
 zopfli==0.2.3.post1

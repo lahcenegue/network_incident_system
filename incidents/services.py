@@ -285,3 +285,240 @@ def get_search_service(network_type):
     
     return IncidentSearchService(model_class)
 
+# ============================================================================
+# CSV/EXCEL EXPORT SERVICE (Task 2: Phase 4)
+# ============================================================================
+
+import csv
+import io
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from datetime import datetime
+
+
+class IncidentExportService:
+    """Service class for exporting incidents to CSV/Excel formats"""
+    
+    def __init__(self, queryset, network_type):
+        self.queryset = queryset
+        self.network_type = network_type
+        self.network_name = self._get_network_name()
+    
+    def _get_network_name(self):
+        """Get display name for network type"""
+        network_names = {
+            'transport': 'Transport Networks',
+            'file_access': 'File Access Networks',
+            'radio_access': 'Radio Access Networks',
+            'core': 'Core Networks',
+            'backbone_internet': 'Backbone Internet Networks',
+        }
+        return network_names.get(self.network_type, 'Unknown Network')
+    
+    def export_to_csv(self):
+        """Export incidents to CSV format"""
+        output = io.StringIO()
+        
+        # Get field configuration for this network type
+        headers, field_getters = self._get_export_fields()
+        
+        writer = csv.writer(output)
+        
+        # Write header row
+        writer.writerow(headers)
+        
+        # Write data rows
+        for incident in self.queryset:
+            row = [getter(incident) for getter in field_getters]
+            writer.writerow(row)
+        
+        return output.getvalue()
+    
+    def export_to_excel(self):
+        """Export incidents to Excel format with formatting"""
+        wb = Workbook()
+        ws = wb.active
+        ws.title = self.network_type.replace('_', ' ').title()[:31]  # Excel sheet name limit
+        
+        # Get field configuration
+        headers, field_getters = self._get_export_fields()
+        
+        # Define styles
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        header_fill = PatternFill(start_color="003d7a", end_color="003d7a", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        header_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        cell_border = Border(
+            left=Side(style='thin', color="CCCCCC"),
+            right=Side(style='thin', color="CCCCCC"),
+            top=Side(style='thin', color="CCCCCC"),
+            bottom=Side(style='thin', color="CCCCCC")
+        )
+        
+        # Write header row with styling
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_num, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = header_border
+        
+        # Write data rows with color coding
+        for row_num, incident in enumerate(self.queryset, 2):
+            # Get severity class for color coding
+            severity_class = incident.get_severity_class()
+            row_fill = self._get_severity_fill(severity_class)
+            
+            for col_num, getter in enumerate(field_getters, 1):
+                value = getter(incident)
+                cell = ws.cell(row=row_num, column=col_num, value=value)
+                cell.border = cell_border
+                
+                # Apply color coding to first column
+                if col_num == 1:
+                    cell.fill = row_fill
+        
+        # Auto-size columns
+        for col_num in range(1, len(headers) + 1):
+            column_letter = get_column_letter(col_num)
+            max_length = len(str(headers[col_num - 1]))
+            
+            for row in ws.iter_rows(min_row=2, min_col=col_num, max_col=col_num):
+                try:
+                    cell_value = str(row[0].value) if row[0].value else ""
+                    max_length = max(max_length, len(cell_value))
+                except:
+                    pass
+            
+            adjusted_width = min(max_length + 2, 50)  # Max width 50
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        # Freeze header row
+        ws.freeze_panes = 'A2'
+        
+        # Save to BytesIO
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return output.getvalue()
+    
+    def _get_severity_fill(self, severity_class):
+        """Get Excel fill color based on severity"""
+        severity_colors = {
+            'incident-new': PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid"),
+            'incident-low': PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid"),
+            'incident-medium': PatternFill(start_color="FED7AA", end_color="FED7AA", fill_type="solid"),
+            'incident-critical': PatternFill(start_color="FECACA", end_color="FECACA", fill_type="solid"),
+            'incident-resolved': PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid"),
+        }
+        return severity_colors.get(severity_class, PatternFill())
+    
+    def _get_export_fields(self):
+        """Get headers and field getter functions for each network type"""
+        
+        # Common fields for all networks
+        common_headers = [
+            'Incident ID',
+            'Start Date/Time',
+            'Recovery Date/Time',
+            'Duration',
+            'Status',
+            'Severity',
+            'Cause',
+            'Origin',
+            'Impact/Comment',
+            'Created By',
+            'Created At',
+        ]
+        
+        common_getters = [
+            lambda i: str(i.id)[:8] + '...',
+            lambda i: i.date_time_incident.strftime('%Y-%m-%d %H:%M:%S') if i.date_time_incident else '',
+            lambda i: i.date_time_recovery.strftime('%Y-%m-%d %H:%M:%S') if i.date_time_recovery else '',
+            lambda i: i.get_duration_display(),
+            lambda i: 'Resolved' if i.is_resolved else 'Active',
+            lambda i: i.get_severity_display(),
+            lambda i: i.cause or '',
+            lambda i: i.origin or '',
+            lambda i: i.impact_comment or '',
+            lambda i: i.created_by.username if i.created_by else '',
+            lambda i: i.created_at.strftime('%Y-%m-%d %H:%M:%S') if i.created_at else '',
+        ]
+        
+        # Network-specific fields
+        if self.network_type == 'transport':
+            network_headers = ['Region/Loop', 'System/Capacity', 'Extremity A', 'Extremity B', 'Responsibility']
+            network_getters = [
+                lambda i: i.region_loop or '',
+                lambda i: i.system_capacity or '',
+                lambda i: i.extremity_a or '',
+                lambda i: i.extremity_b or '',
+                lambda i: i.responsibility or '',
+            ]
+        
+        elif self.network_type == 'file_access':
+            network_headers = ['DO/Wilaya', 'Zone/Metro', 'Site', 'IP Address']
+            network_getters = [
+                lambda i: i.do_wilaya or '',
+                lambda i: i.zone_metro or '',
+                lambda i: i.site or '',
+                lambda i: i.ip_address or '',
+            ]
+        
+        elif self.network_type == 'radio_access':
+            network_headers = ['DO/Wilaya', 'Site', 'IP Address']
+            network_getters = [
+                lambda i: i.do_wilaya or '',
+                lambda i: i.site or '',
+                lambda i: i.ip_address or '',
+            ]
+        
+        elif self.network_type == 'core':
+            network_headers = ['Platform', 'Region/Node', 'Site', 'Extremity A', 'Extremity B']
+            network_getters = [
+                lambda i: i.platform or '',
+                lambda i: i.region_node or '',
+                lambda i: i.site or '',
+                lambda i: i.extremity_a or '',
+                lambda i: i.extremity_b or '',
+            ]
+        
+        elif self.network_type == 'backbone_internet':
+            network_headers = ['Interconnect Type', 'Platform/IGW', 'Link Label']
+            network_getters = [
+                lambda i: i.interconnect_type or '',
+                lambda i: i.platform_igw or '',
+                lambda i: i.link_label or '',
+            ]
+        
+        else:
+            network_headers = []
+            network_getters = []
+        
+        # Combine headers and getters
+        headers = network_headers + common_headers
+        field_getters = network_getters + common_getters
+        
+        return headers, field_getters
+    
+    def get_filename(self, format='csv'):
+        """Generate appropriate filename for export"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        network_slug = self.network_type.replace('_', '-')
+        extension = 'csv' if format == 'csv' else 'xlsx'
+        
+        return f'incidents_{network_slug}_{timestamp}.{extension}'
+
+
+def get_export_service(queryset, network_type):
+    """Factory function to get export service"""
+    return IncidentExportService(queryset, network_type)
+

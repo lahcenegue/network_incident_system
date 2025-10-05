@@ -42,6 +42,8 @@ urlpatterns = [
     # Unified Historical View (All Networks)
     path('historical/', views.unified_historical_incidents_view, name='unified_historical'),
     path('historical/restore/<uuid:incident_id>/<str:network_type>/', views.restore_archived_incident, name='restore_incident'),
+    path('archive/<uuid:incident_id>/<str:network_type>/', views.archive_incident_manual, name='archive_incident_manual'),
+    path('bulk-archive/', views.bulk_archive_incidents, name='bulk_archive_incidents'),
     
     # AJAX endpoints for validation
     path('validate-field/<str:network_type>/', views.validate_incident_field, name='validate_field'),
@@ -49,4 +51,15 @@ urlpatterns = [
 
     # Incident detail modal endpoint
     path('<str:network_type>/detail/<uuid:incident_id>/', views.get_incident_detail, name='incident_detail'),
+
+    # Saved Search endpoints (Task 1: Phase 4)
+    path('saved-search/<str:network_type>/save/', views.save_search_view, name='save_search'),
+    path('saved-search/<str:network_type>/list/', views.list_saved_searches_view, name='list_saved_searches'),
+    path('saved-search/<uuid:search_id>/load/', views.load_saved_search_view, name='load_saved_search'),
+    path('saved-search/<uuid:search_id>/delete/', views.delete_saved_search_view, name='delete_saved_search'),
+    path('saved-search/<uuid:search_id>/set-default/', views.set_default_search_view, name='set_default_search'),
+
+    # CSV/Excel Export endpoints (Task 2: Phase 4)
+    path('export/<str:network_type>/', views.export_incidents_view, name='export_incidents'),
+    path('export-all-networks/', views.bulk_export_all_networks, name='export_all_networks'),
 ]

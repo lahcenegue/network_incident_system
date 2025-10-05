@@ -288,5 +288,159 @@
 {% block extra_js %}{% endblock %}
 {% block page_js %}{% endblock %}
 
+<!-- Archive Incident Confirmation Modal -->
+<div class="modal fade" id="archiveConfirmModal" tabindex="-1" aria-labelledby="archiveConfirmLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="archiveConfirmLabel">
+                    <i class="bi bi-archive me-2"></i>Confirm Archive Incident
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Archive Criteria Check:</strong>
+                </div>
+                
+                <ul class="list-unstyled mb-3" id="archiveCriteriaList">
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        Incident is resolved
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        Cause field is filled
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        Origin field is filled
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        2+ hours since resolution
+                    </li>
+                </ul>
+                
+                <div class="alert alert-warning mb-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>This action will:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>Move incident to historical archive</li>
+                        <li>Remove from active incident lists</li>
+                        <li>Record your username as archiver</li>
+                    </ul>
+                </div>
+                
+                <p class="mt-3 mb-0 text-muted small">
+                    <strong>Note:</strong> Archived incidents can be restored by administrators from the Historical Incidents page.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-warning" id="confirmArchiveBtn">
+                    <i class="bi bi-archive me-1"></i>Archive Incident
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global Archive Functionality
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Archive system initializing...');
+    
+    // Handle Archive Now button clicks (in detail modal)
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.btn-archive-manual')) {
+            e.preventDefault();
+            const btn = e.target.closest('.btn-archive-manual');
+            const incidentId = btn.getAttribute('data-incident-id');
+            const networkType = btn.getAttribute('data-network-type');
+            
+            console.log('Archive button clicked:', incidentId, networkType);
+            
+            // Store data for confirmation
+            const confirmBtn = document.getElementById('confirmArchiveBtn');
+            if (confirmBtn) {
+                confirmBtn.setAttribute('data-incident-id', incidentId);
+                confirmBtn.setAttribute('data-network-type', networkType);
+                
+                // Show confirmation modal
+                const modal = new bootstrap.Modal(document.getElementById('archiveConfirmModal'));
+                modal.show();
+            }
+        }
+    });
+    
+    // Handle Confirm Archive button click
+    const confirmArchiveBtn = document.getElementById('confirmArchiveBtn');
+    if (confirmArchiveBtn) {
+        confirmArchiveBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            
+            const incidentId = this.getAttribute('data-incident-id');
+            const networkType = this.getAttribute('data-network-type');
+            
+            console.log('Confirming archive:', incidentId, networkType);
+            
+            if (!incidentId || !networkType) {
+                console.error('Missing incident data');
+                return;
+            }
+            
+            // Show loading state
+            this.disabled = true;
+            this.innerHTML = '<i class="bi bi-hourglass me-1"></i>Archiving...';
+            
+            try {
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                                 document.querySelector('meta[name="csrf-token"]')?.content;
+                
+                console.log('Sending archive request...');
+                
+                const response = await fetch(`/incidents/archive/${incidentId}/${networkType}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                });
+                
+                const data = await response.json();
+                console.log('Archive response:', data);
+                
+                // Close confirmation modal
+                const confirmModal = bootstrap.Modal.getInstance(document.getElementById('archiveConfirmModal'));
+                if (confirmModal) confirmModal.hide();
+                
+                // Close detail modal
+                const detailModal = bootstrap.Modal.getInstance(document.getElementById('incidentDetailModal'));
+                if (detailModal) detailModal.hide();
+                
+                if (data.success) {
+                    alert('✓ Incident archived successfully!');
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to archive incident'));
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-archive me-1"></i>Archive Incident';
+                }
+                
+            } catch (error) {
+                console.error('Archive error:', error);
+                alert('Network error. Please try again.');
+                this.disabled = false;
+                this.innerHTML = '<i class="bi bi-archive me-1"></i>Archive Incident';
+            }
+        });
+    }
+});
+</script>
+
 </body>
 </html>

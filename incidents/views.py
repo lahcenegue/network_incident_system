@@ -90,7 +90,7 @@ def network_incidents_view(request, network_type):
         search_form = search_form_class(request.GET) if search_form_class else None
         
         # OPTIMIZED: Use select_related and only() for memory efficiency
-        base_queryset = model.objects.select_related('created_by', 'updated_by').only(
+        base_queryset = model.objects.filter(is_archived=False).select_related('created_by', 'updated_by').only(
             'id', 'date_time_incident', 'date_time_recovery', 'duration_minutes',
             'cause', 'origin', 'is_resolved', 'created_by__username', 'updated_by__username',
             # Network-specific essential fields
@@ -127,12 +127,14 @@ def network_incidents_view(request, network_type):
         
         # MEMORY OPTIMIZED: Limit recent resolved to prevent memory issues
         recent_resolved_qs = filtered_queryset.filter(
+            is_archived=False,
             date_time_recovery__isnull=False,
             date_time_recovery__gte=timezone.now() - timedelta(hours=24)
         ).order_by('-date_time_recovery')[:10]
         
         # MEMORY OPTIMIZED: Get active incidents with limits
         active_incidents_qs = filtered_queryset.filter(
+            is_archived=False,
             date_time_recovery__isnull=True
         ).order_by('-date_time_incident')
         
@@ -684,6 +686,8 @@ def get_incident_detail(request, network_type, incident_id):
             'error': str(e)
         }, status=500)
     
+
+    
 @login_required
 def unified_historical_incidents_view(request):
     """
@@ -906,3 +910,651 @@ def restore_archived_incident(request, incident_id, network_type):
         messages.error(request, f"Error restoring incident: {str(e)}")
     
     return redirect('incidents:unified_historical')
+
+@login_required
+@require_http_methods(["POST"])
+def archive_incident_manual(request, incident_id, network_type):
+    """
+    Manually archive an incident (Admin only).
+    Validates archival criteria before archiving.
+    """
+    # Check admin permission
+    if not request.user.is_admin():
+        return JsonResponse({
+            'success': False,
+            'error': 'Only administrators can archive incidents manually.'
+        }, status=403)
+    
+    try:
+        # Get the appropriate model
+        model_map = {
+            'transport': TransportNetworkIncident,
+            'file_access': FileAccessNetworkIncident,
+            'radio_access': RadioAccessNetworkIncident,
+            'core': CoreNetworkIncident,
+            'backbone_internet': BackboneInternetNetworkIncident,
+        }
+        
+        if network_type not in model_map:
+            return JsonResponse({
+                'success': False,
+                'error': f'Invalid network type: {network_type}'
+            }, status=400)
+        
+        model = model_map[network_type]
+        incident = get_object_or_404(model, id=incident_id)
+        
+        # Check if incident can be archived
+        if not incident.can_be_archived():
+            return JsonResponse({
+                'success': False,
+                'error': 'Incident does not meet archival criteria. Ensure it is resolved, has cause and origin filled, and 2+ hours have passed since resolution.'
+            }, status=400)
+        
+        # Archive the incident
+        success = incident.archive(request.user)
+        
+        if success:
+            return JsonResponse({
+                'success': True,
+                'message': f'Incident {str(incident_id)[:8]} successfully archived.',
+                'incident_id': str(incident_id)
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Failed to archive incident. Please try again.'
+            }, status=500)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+    
+@login_required
+@require_http_methods(["POST"])
+def bulk_archive_incidents(request):
+    """
+    Bulk archive multiple incidents (Admin only).
+    Receives list of incident IDs and archives all eligible ones.
+    """
+    # Check admin permission
+    if not request.user.is_admin():
+        return JsonResponse({
+            'success': False,
+            'error': 'Only administrators can bulk archive incidents.'
+        }, status=403)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        incident_ids = data.get('incident_ids', [])
+        network_type = data.get('network_type')
+        
+        if not incident_ids or not network_type:
+            return JsonResponse({
+                'success': False,
+                'error': 'Missing incident IDs or network type.'
+            }, status=400)
+        
+        # Get the appropriate model
+        model_map = {
+            'transport': TransportNetworkIncident,
+            'file_access': FileAccessNetworkIncident,
+            'radio_access': RadioAccessNetworkIncident,
+            'core': CoreNetworkIncident,
+            'backbone_internet': BackboneInternetNetworkIncident,
+        }
+        
+        if network_type not in model_map:
+            return JsonResponse({
+                'success': False,
+                'error': f'Invalid network type: {network_type}'
+            }, status=400)
+        
+        model = model_map[network_type]
+        
+        # Archive each incident
+        archived_count = 0
+        failed_incidents = []
+        
+        for incident_id in incident_ids:
+            try:
+                incident = model.objects.get(id=incident_id)
+                
+                # Admin can bulk archive any resolved incident (bypass 2-hour rule)
+                if incident.date_time_recovery:
+                    success = incident.archive(request.user)
+                    if success:
+                        archived_count += 1
+                    else:
+                        failed_incidents.append(str(incident_id)[:8])
+                else:
+                    # Not resolved yet
+                    failed_incidents.append(str(incident_id)[:8])
+                    
+            except model.DoesNotExist:
+                failed_incidents.append(str(incident_id)[:8])
+        
+        response_data = {
+            'success': True,
+            'archived_count': archived_count,
+            'total_requested': len(incident_ids)
+        }
+        
+        if failed_incidents:
+            response_data['failed_incidents'] = failed_incidents
+            response_data['message'] = f'Archived {archived_count} of {len(incident_ids)} incidents. Some incidents were not eligible.'
+        else:
+            response_data['message'] = f'Successfully archived {archived_count} incidents.'
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+    
+# ============================================================================
+# SAVED SEARCH FUNCTIONALITY (Task 1: Phase 4)
+# ============================================================================
+
+@login_required
+@require_http_methods(["POST"])
+def save_search_view(request, network_type):
+    """
+    Save current search filters for quick access later.
+    Each user can have multiple saved searches per network type.
+    """
+    from .models import SavedSearch
+    
+    if network_type not in NETWORKS:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid network type'
+        }, status=400)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        search_name = data.get('name', '').strip()
+        search_params = data.get('params', {})
+        description = data.get('description', '').strip()
+        set_as_default = data.get('set_as_default', False)
+        
+        # Validation
+        if not search_name:
+            return JsonResponse({
+                'success': False,
+                'error': 'Search name is required'
+            }, status=400)
+        
+        if len(search_name) > 100:
+            return JsonResponse({
+                'success': False,
+                'error': 'Search name must be 100 characters or less'
+            }, status=400)
+        
+        # Check if user already has a saved search with this name for this network
+        existing = SavedSearch.objects.filter(
+            user=request.user,
+            name=search_name,
+            network_type=network_type
+        ).first()
+        
+        if existing:
+            # Update existing saved search
+            existing.search_params = search_params
+            existing.description = description
+            existing.is_default = set_as_default
+            existing.save()
+            saved_search = existing
+            created = False
+        else:
+            # Create new saved search
+            saved_search = SavedSearch.objects.create(
+                user=request.user,
+                name=search_name,
+                network_type=network_type,
+                search_params=search_params,
+                description=description,
+                is_default=set_as_default
+            )
+            created = True
+        
+        # If setting as default, unset other defaults for this network
+        if set_as_default:
+            SavedSearch.objects.filter(
+                user=request.user,
+                network_type=network_type,
+                is_default=True
+            ).exclude(id=saved_search.id).update(is_default=False)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f"Search '{search_name}' {'updated' if not created else 'saved'} successfully",
+            'search_id': str(saved_search.id),
+            'created': created
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON data'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def list_saved_searches_view(request, network_type):
+    """
+    Get all saved searches for the current user and network type.
+    Returns JSON array of saved searches with metadata.
+    """
+    from .models import SavedSearch
+    
+    if network_type not in NETWORKS:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid network type'
+        }, status=400)
+    
+    try:
+        saved_searches = SavedSearch.objects.filter(
+            user=request.user,
+            network_type=network_type
+        ).order_by('-last_used_at', '-created_at')
+        
+        searches_data = []
+        for search in saved_searches:
+            searches_data.append({
+                'id': str(search.id),
+                'name': search.name,
+                'description': search.description,
+                'params': search.search_params,
+                'params_summary': search.get_params_summary(),
+                'is_default': search.is_default,
+                'use_count': search.use_count,
+                'last_used_at': search.last_used_at.isoformat() if search.last_used_at else None,
+                'created_at': search.created_at.isoformat()
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'searches': searches_data,
+            'count': len(searches_data)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def load_saved_search_view(request, search_id):
+    """
+    Load a saved search by ID and increment its usage counter.
+    Returns the search parameters to populate the search form.
+    """
+    from .models import SavedSearch
+    
+    try:
+        saved_search = get_object_or_404(
+            SavedSearch,
+            id=search_id,
+            user=request.user  # Security: Only load user's own searches
+        )
+        
+        # Increment usage counter
+        saved_search.increment_use_count()
+        
+        return JsonResponse({
+            'success': True,
+            'search': {
+                'id': str(saved_search.id),
+                'name': saved_search.name,
+                'description': saved_search.description,
+                'params': saved_search.search_params,
+                'network_type': saved_search.network_type,
+                'is_default': saved_search.is_default
+            }
+        })
+        
+    except SavedSearch.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Saved search not found'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_saved_search_view(request, search_id):
+    """
+    Delete a saved search by ID.
+    Only the owner can delete their saved searches.
+    """
+    from .models import SavedSearch
+    
+    try:
+        saved_search = get_object_or_404(
+            SavedSearch,
+            id=search_id,
+            user=request.user  # Security: Only delete user's own searches
+        )
+        
+        search_name = saved_search.name
+        saved_search.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f"Search '{search_name}' deleted successfully"
+        })
+        
+    except SavedSearch.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Saved search not found'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def set_default_search_view(request, search_id):
+    """
+    Set a saved search as the default for its network type.
+    Unsets any other default for that network.
+    """
+    from .models import SavedSearch
+    
+    try:
+        saved_search = get_object_or_404(
+            SavedSearch,
+            id=search_id,
+            user=request.user  # Security: Only modify user's own searches
+        )
+        
+        # Unset other defaults for this network type
+        SavedSearch.objects.filter(
+            user=request.user,
+            network_type=saved_search.network_type,
+            is_default=True
+        ).exclude(id=saved_search.id).update(is_default=False)
+        
+        # Set this search as default
+        saved_search.is_default = True
+        saved_search.save(update_fields=['is_default'])
+        
+        return JsonResponse({
+            'success': True,
+            'message': f"'{saved_search.name}' set as default search"
+        })
+        
+    except SavedSearch.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Saved search not found'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+    
+# ============================================================================
+# CSV/EXCEL EXPORT FUNCTIONALITY (Task 2: Phase 4)
+# ============================================================================
+
+from django.http import HttpResponse
+from .services import get_export_service
+
+
+@login_required
+@require_http_methods(["POST"])
+def export_incidents_view(request, network_type):
+    """
+    Export filtered incidents to CSV or Excel format.
+    Respects current search filters and exports only what user sees.
+    """
+    if network_type not in NETWORKS:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid network type'
+        }, status=400)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        export_format = data.get('format', 'csv').lower()
+        search_params = data.get('search_params', {})
+        
+        # Validate format
+        if export_format not in ['csv', 'xlsx', 'excel']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid export format. Use "csv" or "xlsx"'
+            }, status=400)
+        
+        # Normalize excel format
+        if export_format == 'excel':
+            export_format = 'xlsx'
+        
+        # Get the model
+        model = NETWORKS[network_type]['model']
+        
+        # Build queryset with same filters as current view
+        queryset = model.objects.filter(is_archived=False).select_related('created_by', 'updated_by')
+        
+        # Apply search filters if provided
+        if search_params:
+            search_service = get_search_service(network_type)
+            queryset = search_service.search_incidents(search_params)
+        else:
+            queryset = queryset.order_by('-date_time_incident')
+        
+        # Limit to prevent memory issues (configurable)
+        max_export_limit = 10000
+        total_count = queryset.count()
+        
+        if total_count > max_export_limit:
+            return JsonResponse({
+                'success': False,
+                'error': f'Export limit exceeded. Maximum {max_export_limit} incidents allowed. Your filter returned {total_count} incidents. Please narrow your search.'
+            }, status=400)
+        
+        # Get export service
+        export_service = get_export_service(queryset, network_type)
+        
+        # Generate export file
+        if export_format == 'csv':
+            content = export_service.export_to_csv()
+            content_type = 'text/csv'
+        else:  # xlsx
+            content = export_service.export_to_excel()
+            content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        
+        # Get filename
+        filename = export_service.get_filename(export_format)
+        
+        # Create response
+        response = HttpResponse(content, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        # Log export activity (optional)
+        from .models import AuditLog
+        AuditLog.objects.create(
+            user=request.user,
+            action='EXPORT',
+            model_name=f'{network_type}_incidents',
+            object_id=f'{total_count}_records',
+            changes={'format': export_format, 'count': total_count},
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
+        
+        return response
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON data'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Export failed: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def bulk_export_all_networks(request):
+    """
+    Export incidents from all networks into a single Excel file with multiple sheets.
+    Admin-only feature for comprehensive reporting.
+    """
+    # Check admin permission
+    if not request.user.is_admin():
+        return JsonResponse({
+            'success': False,
+            'error': 'Only administrators can export all networks'
+        }, status=403)
+    
+    try:
+        import json
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill
+        
+        data = json.loads(request.body)
+        date_from = data.get('date_from')
+        date_to = data.get('date_to')
+        include_archived = data.get('include_archived', False)
+        
+        # Create workbook
+        wb = Workbook()
+        wb.remove(wb.active)  # Remove default sheet
+        
+        total_incidents = 0
+        
+        # Export each network type to separate sheet
+        for network_key, network_config in NETWORKS.items():
+            model = network_config['model']
+            
+            # Build queryset
+            queryset = model.objects.select_related('created_by', 'updated_by')
+            
+            if not include_archived:
+                queryset = queryset.filter(is_archived=False)
+            
+            # Apply date filters
+            if date_from:
+                queryset = queryset.filter(date_time_incident__gte=date_from)
+            if date_to:
+                queryset = queryset.filter(date_time_incident__lte=date_to)
+            
+            queryset = queryset.order_by('-date_time_incident')
+            
+            # Get export service
+            export_service = get_export_service(queryset, network_key)
+            
+            # Create sheet
+            sheet_name = network_config['name'][:31]  # Excel limit
+            ws = wb.create_sheet(sheet_name)
+            
+            # Get headers and data
+            headers, field_getters = export_service._get_export_fields()
+            
+            # Header styling
+            header_font = Font(bold=True, color="FFFFFF")
+            header_fill = PatternFill(start_color="003d7a", end_color="003d7a", fill_type="solid")
+            
+            # Write headers
+            for col_num, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col_num, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+            
+            # Write data
+            for row_num, incident in enumerate(queryset, 2):
+                for col_num, getter in enumerate(field_getters, 1):
+                    ws.cell(row=row_num, column=col_num, value=getter(incident))
+            
+            total_incidents += queryset.count()
+        
+        # Create summary sheet at the beginning
+        summary_ws = wb.create_sheet('Summary', 0)
+        summary_ws['A1'] = 'Network Incident Export Summary'
+        summary_ws['A1'].font = Font(bold=True, size=14)
+        
+        summary_ws['A3'] = 'Export Date:'
+        summary_ws['B3'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        summary_ws['A4'] = 'Exported By:'
+        summary_ws['B4'] = request.user.username
+        
+        summary_ws['A5'] = 'Total Incidents:'
+        summary_ws['B5'] = total_incidents
+        
+        if date_from:
+            summary_ws['A6'] = 'Date From:'
+            summary_ws['B6'] = date_from
+        
+        if date_to:
+            summary_ws['A7'] = 'Date To:'
+            summary_ws['B7'] = date_to
+        
+        # Save to BytesIO
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        # Generate filename
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'all_networks_export_{timestamp}.xlsx'
+        
+        # Create response
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        # Log export
+        from .models import AuditLog
+        AuditLog.objects.create(
+            user=request.user,
+            action='EXPORT',
+            model_name='all_networks',
+            object_id=f'{total_incidents}_records',
+            changes={'format': 'xlsx', 'count': total_incidents},
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
+        
+        return response
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Bulk export failed: {str(e)}'
+        }, status=500)

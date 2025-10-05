@@ -283,25 +283,33 @@ class BaseIncident(models.Model):
         """
         Archive this incident.
         
-        This method marks the incident as archived and records who archived it
-        and when. It should only be called after verifying can_be_archived() 
-        returns True.
-        
-        Args:
-            user: The CustomUser object performing the archival
-            
-        Returns:
-            bool: True if archived successfully, False otherwise
-            
-        Raises:
-            ValueError: If incident cannot be archived
+        Admins can archive any resolved incident immediately.
+        Automatic archival requires all criteria to be met (2hr wait + cause/origin).
         """
-        if not self.can_be_archived():
-            raise ValueError(
-                "Incident cannot be archived. Ensure it is resolved, "
-                "has cause and origin filled, and 2+ hours have passed since resolution."
-            )
+        # Check if user is admin (for manual archival by admin users)
+        is_admin_user = False
+        if user:
+            # Check if user has is_admin method and it returns True
+            if hasattr(user, 'is_admin') and callable(user.is_admin):
+                is_admin_user = user.is_admin()
+            # Fallback: check is_superuser
+            elif hasattr(user, 'is_superuser'):
+                is_admin_user = user.is_superuser
         
+        # Admin can archive any resolved incident (bypass 2-hour rule)
+        if is_admin_user:
+            if not self.date_time_recovery:
+                raise ValueError("Cannot archive active incident. Incident must be resolved first.")
+            # For admin: only check that incident is resolved, ignore other criteria
+        else:
+            # Non-admin or automatic archival requires ALL criteria
+            if not self.can_be_archived():
+                raise ValueError(
+                    "Incident cannot be archived. Ensure it is resolved, "
+                    "has cause and origin filled, and 2+ hours have passed since resolution."
+                )
+        
+        # Perform the archival
         try:
             self.is_archived = True
             self.archived_at = timezone.now()
@@ -310,7 +318,6 @@ class BaseIncident(models.Model):
             self.save(update_fields=['is_archived', 'archived_at', 'archived_by', 'updated_by', 'updated_at'])
             return True
         except Exception as e:
-            # Log the error (you can enhance this with proper logging later)
             print(f"Error archiving incident {self.id}: {str(e)}")
             return False
     
@@ -716,6 +723,117 @@ class AuditLog(models.Model):
     
     def __str__(self):
         return f"{self.user} {self.action} {self.model_name} at {self.timestamp}"
+    
+class SavedSearch(models.Model):
+    """
+    Saved search filters for users to quickly access common searches
+    """
+    NETWORK_TYPE_CHOICES = [
+        ('transport', 'Transport Networks'),
+        ('file_access', 'File Access Networks'),
+        ('radio_access', 'Radio Access Networks'),
+        ('core', 'Core Networks'),
+        ('backbone_internet', 'Backbone Internet Networks'),
+    ]
+    
+    # Identification
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        'authentication.CustomUser',
+        on_delete=models.CASCADE,
+        related_name='saved_searches',
+        help_text="User who created this saved search"
+    )
+    name = models.CharField(
+        max_length=100,
+        help_text="User-friendly name for this saved search"
+    )
+    network_type = models.CharField(
+        max_length=20,
+        choices=NETWORK_TYPE_CHOICES,
+        help_text="Which network type this search applies to"
+    )
+    
+    # Search Parameters (stored as JSON for flexibility)
+    search_params = models.JSONField(
+        default=dict,
+        help_text="JSON object containing all search filter parameters"
+    )
+    
+    # Metadata
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Optional description of what this search finds"
+    )
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Whether this search should load by default for this network type"
+    )
+    use_count = models.IntegerField(
+        default=0,
+        help_text="Number of times this search has been used"
+    )
+    last_used_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Last time this search was used"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Saved Search"
+        verbose_name_plural = "Saved Searches"
+        ordering = ['-last_used_at', '-created_at']
+        unique_together = ('user', 'name', 'network_type')  # User can't have duplicate names per network
+        indexes = [
+            models.Index(fields=['user', 'network_type']),
+            models.Index(fields=['user', 'is_default']),
+            models.Index(fields=['last_used_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.name} ({self.get_network_type_display()})"
+    
+    def increment_use_count(self):
+        """Increment usage counter and update last used timestamp"""
+        self.use_count += 1
+        self.last_used_at = timezone.now()
+        self.save(update_fields=['use_count', 'last_used_at'])
+    
+    def get_params_summary(self):
+        """Return human-readable summary of search parameters"""
+        params = self.search_params
+        summary_parts = []
+        
+        # Status filter
+        if params.get('status'):
+            summary_parts.append(f"Status: {params['status']}")
+        
+        # Date range
+        if params.get('date_from') or params.get('date_to'):
+            date_str = "Date: "
+            if params.get('date_from'):
+                date_str += f"from {params['date_from']}"
+            if params.get('date_to'):
+                date_str += f" to {params['date_to']}"
+            summary_parts.append(date_str.strip())
+        
+        # Cause/Origin
+        if params.get('cause'):
+            summary_parts.append(f"Cause: {params['cause']}")
+        if params.get('origin'):
+            summary_parts.append(f"Origin: {params['origin']}")
+        
+        # Search query
+        if params.get('search_query'):
+            summary_parts.append(f"Search: '{params['search_query']}'")
+        
+        return " | ".join(summary_parts) if summary_parts else "No filters"
 
 
 class SystemConfiguration(models.Model):
